@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+data/
+backups/
+*.sqlite
+*.sqlite3

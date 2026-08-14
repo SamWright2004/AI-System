@@ -1,0 +1,61 @@
+{
+  "name": "personal-ai-foundation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first foundation for a private, proactive personal AI system.",
+  "type": "module",
+  "packageManager": "pnpm@11.16.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n WEB,API,WORKER -c cyan,magenta,yellow \"pnpm dev:web\" \"pnpm dev:api\" \"pnpm dev:worker\"",
+    "dev:web": "vite",
+    "dev:api": "tsx watch src/server/main.ts",
+    "dev:worker": "tsx watch src/worker/main.ts",
+    "build": "pnpm typecheck && pnpm build:web && pnpm build:server && pnpm build:worker",
+    "build:web": "vite build",
+    "build:server": "tsup src/server/main.ts --format esm --platform node --target node24 --out-dir dist/server --clean --sourcemap",
+    "build:worker": "tsup src/worker/main.ts --format esm --platform node --target node24 --out-dir dist/worker --clean --sourcemap",
+    "start": "node dist/server/main.js",
+    "start:worker": "node dist/worker/main.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@fastify/static": "^10.1.3",
+    "fastify": "^5.11.3",
+    "openai": "^7.4.0",
+    "pg": "^8.23.0",
+    "pg-boss": "^12.27.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "@types/pg": "^8.21.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "concurrently": "^10.0.4",
+    "eslint": "^10.8.1",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.12",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  }
+}
