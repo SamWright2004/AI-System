@@ -20,12 +20,18 @@ const envSchema = z.object({
     .string()
     .min(1)
     .default("postgresql://personal_ai:personal_ai_dev@127.0.0.1:5434/personal_ai"),
-  AI_PROVIDER: z.enum(["mock", "openai"]).default("mock"),
+  AI_PROVIDER: z.enum(["mock", "openai", "ollama"]).default("mock"),
+
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_CHAT_MODEL: z.string().default("gpt-5.6-terra"),
   OPENAI_DEEP_MODEL: z.string().default("gpt-5.6"),
   OPENAI_FAST_MODEL: z.string().default("gpt-5.6-luna"),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+
+  OLLAMA_BASE_URL: z.url().default("http://127.0.0.1:11434"),
+  OLLAMA_CHAT_MODEL: z.string().default("qwen3.5:4b"),
+  OLLAMA_THINK: booleanFromString.default(false),
+
   APP_SECRET: z.string().min(16).default("development-only-secret-change-me"),
   SERVE_UI: booleanFromString.default(false),
 });
@@ -49,6 +55,7 @@ export const config = Object.freeze({
   logLevel: parsed.data.LOG_LEVEL,
   databaseUrl: parsed.data.DATABASE_URL,
   aiProvider: parsed.data.AI_PROVIDER,
+
   openAiApiKey: parsed.data.OPENAI_API_KEY,
   models: {
     chat: parsed.data.OPENAI_CHAT_MODEL,
@@ -56,6 +63,11 @@ export const config = Object.freeze({
     fast: parsed.data.OPENAI_FAST_MODEL,
     embedding: parsed.data.OPENAI_EMBEDDING_MODEL,
   },
+
+  ollamaBaseUrl: parsed.data.OLLAMA_BASE_URL,
+  ollamaChatModel: parsed.data.OLLAMA_CHAT_MODEL,
+  ollamaThink: parsed.data.OLLAMA_THINK,
+
   appSecret: parsed.data.APP_SECRET,
   serveUi: parsed.data.SERVE_UI,
 });
