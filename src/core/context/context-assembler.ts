@@ -106,6 +106,7 @@ export class ContextAssembler implements ConversationContextAssembler {
     let messagesConsidered = 1;
     let turnsSelected = 0;
     let failedMessagesExcluded = 0;
+    let cancelledMessagesExcluded = 0;
     let incoherentMessagesExcluded = 0;
     let truncated = estimatedTokens >= budgetTokens;
     let stoppedForBudget = estimatedTokens >= budgetTokens;
@@ -120,8 +121,12 @@ export class ContextAssembler implements ConversationContextAssembler {
 
       for (const message of page.messages) {
         messagesConsidered += 1;
-        if (message.status === "failed") {
-          failedMessagesExcluded += 1;
+        if (message.status !== "complete") {
+          if (message.status === "failed") {
+            failedMessagesExcluded += 1;
+          } else {
+            cancelledMessagesExcluded += 1;
+          }
           continue;
         }
 
@@ -197,6 +202,7 @@ export class ContextAssembler implements ConversationContextAssembler {
           messagesSelected: messages.length,
           turnsSelected,
           failedMessagesExcluded,
+          cancelledMessagesExcluded,
           incoherentMessagesExcluded,
           truncated,
         },

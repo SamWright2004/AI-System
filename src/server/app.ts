@@ -13,6 +13,8 @@ import { AppError } from "../shared/errors.js";
 import type { AppConfig } from "../shared/config.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerHealthRoute } from "./routes/health.js";
+import { registerSettingsRoutes } from "./routes/settings.js";
+import { registerThreadRoutes } from "./routes/threads.js";
 
 export async function createApp(config: AppConfig) {
   const app = Fastify({
@@ -23,7 +25,7 @@ export async function createApp(config: AppConfig) {
 
   await app.register(cors, {
     origin: config.appEnv === "development" ? [config.webOrigin] : false,
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   });
 
   const pool = createPool(config.databaseUrl);
@@ -35,10 +37,16 @@ export async function createApp(config: AppConfig) {
     historyPageSize: config.contextHistoryPageSize,
     sources: [personalisation],
   });
-  const chatService = new ChatService(store, store, assistant, contextAssembler, personalisation);
+  const chatService = new ChatService(store, store, assistant, contextAssembler, personalisation, {
+    provider: assistant.provider,
+    model: assistant.model,
+    contextInputTokenBudget: config.contextInputTokenBudget,
+  });
 
   registerHealthRoute(app, { pool, assistant, config });
   registerChatRoutes(app, { chatService, activity: store });
+  registerThreadRoutes(app, { chatService });
+  registerSettingsRoutes(app, { personalisation });
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof AppError) {

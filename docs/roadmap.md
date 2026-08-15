@@ -20,9 +20,9 @@ restart.
 
 ## F1 — Reliable conversation
 
-Status: in progress. Local Ollama conversation, streamed persistence, usage/timing telemetry and budgeted
-context assembly are implemented. Retry/cancellation hardening, titles, export and database integration tests
-remain.
+Status: feature-complete and entering representative-conversation validation. Local Ollama and optional OpenAI
+conversation, streamed persistence, usage/timing telemetry, bounded context, lifecycle hardening and the daily
+conversation UI are implemented.
 
 - connect local Ollama and retain the optional OpenAI Responses API boundary;
 - add model usage, timing and context-selection records (cost records remain for paid providers);
@@ -32,6 +32,10 @@ remain.
 - generate thread titles without cluttering the home view;
 - export a conversation as Markdown/JSON;
 - add API integration tests against a disposable PostgreSQL instance.
+
+The usable surface now also opens on a fresh draft without deleting history, provides searchable history with
+rename/archive controls, exposes personalisation settings in-app, and includes copy, keyboard and composer
+quality-of-life controls.
 
 Exit criteria: twenty representative conversations work without duplicated messages, lost partial replies or
 unbounded context growth.

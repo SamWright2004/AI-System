@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Message, Thread } from "../src/core/chat/types.js";
+import type { PersonalisationProfile } from "../src/core/settings/types.js";
 import { FilePersonalisationSource } from "../src/infrastructure/context/file-personalisation-source.js";
 
 const thread: Thread = {
@@ -61,15 +62,15 @@ describe("FilePersonalisationSource", () => {
         priority: 1_000,
       });
       expect(blocks[0]?.content).toContain("Owner display name: Sam");
-      expect(await source.getSummary()).toEqual({
-        ownerDisplayName: "Sam",
-        assistantDisplayName: "Atlas",
+      expect(await source.getProfile()).toMatchObject({
+        owner: { displayName: "Sam" },
+        assistant: { displayName: "Atlas" },
       });
 
       await writeFile(filePath, profile("Sam", "Nova"), "utf8");
-      expect(await source.getSummary()).toEqual({
-        ownerDisplayName: "Sam",
-        assistantDisplayName: "Nova",
+      expect(await source.getProfile()).toMatchObject({
+        owner: { displayName: "Sam" },
+        assistant: { displayName: "Nova" },
       });
     } finally {
       await rm(directory, { recursive: true, force: true });
@@ -82,9 +83,9 @@ describe("FilePersonalisationSource", () => {
 
     try {
       await expect(source.load({ thread, currentMessage })).resolves.toEqual([]);
-      await expect(source.getSummary()).resolves.toEqual({
-        ownerDisplayName: null,
-        assistantDisplayName: null,
+      await expect(source.getProfile()).resolves.toMatchObject({
+        owner: { displayName: "" },
+        assistant: { displayName: "" },
       });
     } finally {
       await rm(directory, { recursive: true, force: true });
@@ -102,6 +103,22 @@ describe("FilePersonalisationSource", () => {
       await expect(source.load({ thread, currentMessage })).rejects.toThrow(
         "Invalid personalisation profile",
       );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("validates and persists settings written by the application", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "writable-personal-ai-profile-"));
+    const filePath = join(directory, "nested", "profile.json");
+    const source = new FilePersonalisationSource(filePath);
+
+    try {
+      const saved = await source.updateProfile(
+        JSON.parse(profile("Sam", "Nova")) as PersonalisationProfile,
+      );
+      expect(saved.assistant.displayName).toBe("Nova");
+      await expect(source.getProfile()).resolves.toEqual(saved);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

@@ -1,5 +1,7 @@
+import type { PersonalisationProfile } from "../settings/types.js";
+
 export type ChatRole = "user" | "assistant";
-export type MessageStatus = "complete" | "failed";
+export type MessageStatus = "complete" | "cancelled" | "failed";
 
 export interface Thread {
   id: string;
@@ -7,6 +9,11 @@ export interface Thread {
   kind: "primary" | "project" | "temporary";
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ThreadSummary extends Thread {
+  messageCount: number;
+  lastMessagePreview: string | null;
 }
 
 export interface Message {
@@ -81,9 +88,14 @@ export interface AssistantGateway {
 }
 
 export interface ConversationRepository {
-  ensurePrimaryThread(): Promise<Thread>;
+  createThread(input: { title: string; kind?: Thread["kind"] }): Promise<Thread>;
   findThread(threadId: string): Promise<Thread | null>;
+  listThreads(limit?: number): Promise<ThreadSummary[]>;
+  updateThreadTitle(threadId: string, title: string): Promise<Thread | null>;
+  archiveThread(threadId: string): Promise<boolean>;
   listMessages(threadId: string, limit?: number): Promise<Message[]>;
+  findMessage(messageId: string): Promise<Message | null>;
+  hasMessagesAfter(message: Message): Promise<boolean>;
   addMessage(input: {
     threadId: string;
     role: ChatRole;
@@ -103,13 +115,27 @@ export interface ActivityRepository {
 }
 
 export interface HomeState {
+  threads: ThreadSummary[];
+  activity: ActivityItem[];
+  personalisation: PersonalisationProfile;
+  runtime: {
+    provider: string;
+    model: string;
+    contextInputTokenBudget: number;
+  };
+}
+
+export interface ThreadState {
   thread: Thread;
   messages: Message[];
-  activity: ActivityItem[];
-  personalisation: {
-    ownerDisplayName: string | null;
-    assistantDisplayName: string | null;
-  };
+}
+
+export interface GenerationProblem {
+  code: string;
+  message: string;
+  retryable: boolean;
+  userMessageId: string | null;
+  partial: boolean;
 }
 
 export type ChatStreamEvent =
@@ -118,4 +144,5 @@ export type ChatStreamEvent =
   | { type: "delta"; text: string }
   | { type: "assistant_message"; message: Message }
   | { type: "done" }
-  | { type: "error"; message: string };
+  | ({ type: "cancelled" } & GenerationProblem & { assistantMessage?: Message })
+  | ({ type: "error" } & GenerationProblem & { assistantMessage?: Message });

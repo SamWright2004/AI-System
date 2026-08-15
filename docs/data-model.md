@@ -27,6 +27,10 @@ collapsed into one vague blob.
 5. Audit events are appended; corrections are new events rather than edits to history.
 6. Files are identified by source and content hash. A changed file becomes a new indexed version.
 7. SQL migration files are immutable after application. Any later change receives a new numbered migration.
+8. Assistant messages record `complete`, `cancelled` or `failed`; partial output remains evidence but is not
+   admitted into later model context as a completed reply.
+9. Archiving a conversation sets `threads.archived_at`. It removes the thread from the active history UI without
+   deleting its messages.
 
 ## Why vector dimensions are not fixed in the column type
 

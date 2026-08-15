@@ -66,7 +66,21 @@ not grant tool authority; deterministic application policy remains outside the m
 
 The local personalisation file is deliberately separate from the versioned base prompt. The prompt defines
 the system's stable character and safety rules; the ignored local profile carries names, tone and working
-preferences. It is read for each reply so personal adjustments do not require a rebuild or restart.
+preferences. It is read for each reply and can be updated through the local settings API, so personal
+adjustments do not require a rebuild or restart.
+
+## Conversation and generation lifecycle
+
+The browser session and durable conversation history are intentionally different things. Bootstrap returns a
+list of stored threads, activity and settings, but does not select a thread. The UI therefore opens on a fresh
+draft every time; the first sent message creates the durable thread. Opening an old conversation is always an
+explicit action.
+
+An `AbortSignal` travels from the browser's Stop control through `fetch`, Fastify, `ChatService` and the model
+adapter. Completed, cancelled and failed assistant messages are persisted as distinct states. If output has
+already begun, the partial text is kept and retry is disabled. If a transient provider failure occurs before
+output, retry reuses the existing user message and is rejected if any later message exists. This makes retry
+safe by construction instead of relying on the interface to avoid duplicates.
 
 ## Memory is not chat history
 

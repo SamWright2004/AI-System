@@ -58,6 +58,7 @@ export interface ContextDiagnostics {
     messagesSelected: number;
     turnsSelected: number;
     failedMessagesExcluded: number;
+    cancelledMessagesExcluded: number;
     incoherentMessagesExcluded: number;
     truncated: boolean;
   };
@@ -77,13 +78,4 @@ export interface AssembledContext {
 
 export interface ConversationContextAssembler {
   assemble(input: ContextSourceInput): Promise<AssembledContext>;
-}
-
-export interface PersonalisationSummary {
-  ownerDisplayName: string | null;
-  assistantDisplayName: string | null;
-}
-
-export interface PersonalisationReader {
-  getSummary(): Promise<PersonalisationSummary>;
 }
