@@ -199,8 +199,9 @@ export function App() {
       setProblem(null);
     }
     if (event.type === "cancelled" || event.type === "error") {
-      if (event.assistantMessage) {
-        setMessages((current) => appendUnique(current, event.assistantMessage));
+      const assistantMessage = event.assistantMessage;
+      if (assistantMessage) {
+        setMessages((current) => appendUnique(current, assistantMessage));
         setStreamingText("");
         streamingTextRef.current = "";
       }
