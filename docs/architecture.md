@@ -45,6 +45,29 @@ but they are never the only copy of a conversation or tool result. This protects
 Every model request is assembled from canonical local records. The current OpenAI adapter uses `store: false`
 and sends the required context explicitly.
 
+## Context assembly
+
+Context is an application decision, not a provider side effect. `ContextAssembler` reserves the current user
+message, admits owner/application context blocks by priority, and then walks canonical history backwards using
+cursor pagination. Older conversation is selected as complete user/assistant turns until the configured token
+budget is full. The original history is never deleted or rewritten when a request is compacted.
+
+| Extension point             | Present implementation                  | Intended additions                         |
+| --------------------------- | --------------------------------------- | ------------------------------------------ |
+| `ContextHistoryRepository`  | cursor-paged PostgreSQL messages        | alternate local stores                     |
+| `ContextSource`             | Git-ignored personalisation JSON        | approved memory, active project, documents |
+| `TokenEstimator`            | conservative UTF-8 heuristic           | provider-specific tokenisers               |
+| `AssistantContextBlock`     | labelled owner-trusted profile          | application and external evidence blocks   |
+| context diagnostics         | budget, pages, turns and omitted blocks | retrieval quality and evaluation signals   |
+
+Trust travels with every supplemental block. Model adapters explicitly label owner settings, canonical
+application state and untrusted external evidence when composing their system instructions. This label does
+not grant tool authority; deterministic application policy remains outside the model.
+
+The local personalisation file is deliberately separate from the versioned base prompt. The prompt defines
+the system's stable character and safety rules; the ignored local profile carries names, tone and working
+preferences. It is read for each reply so personal adjustments do not require a rebuild or restart.
+
 ## Memory is not chat history
 
 Raw messages are evidence. A memory is a reviewed, typed claim derived from evidence. The schema keeps:
@@ -80,8 +103,9 @@ Model choice is a policy decision, not an identity decision. The intended route 
 | classification, extraction and cheap background triage | GPT-5.6 Luna        | high-volume, bounded tasks           |
 | private/offline fallback                               | local model adapter | continuity and sensitive work        |
 
-The user-facing personality lives in versioned prompts and application memory. It is not tied to one model
-slug, so changing models should feel like changing cognitive horsepower rather than replacing the collaborator.
+The user-facing personality lives in versioned prompts, the local owner profile and application memory. It is
+not tied to one model slug, so changing models should feel like changing cognitive horsepower rather than
+replacing the collaborator.
 
 ## Extraction path, if scale ever demands it
 

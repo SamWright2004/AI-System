@@ -23,6 +23,17 @@ export interface Message {
   createdAt: string;
 }
 
+export interface MessagePageCursor {
+  createdAt: string;
+  id: string;
+}
+
+export interface MessagePage {
+  /** Messages are ordered newest first for efficient backward context assembly. */
+  messages: Message[];
+  nextCursor: MessagePageCursor | null;
+}
+
 export interface ActivityItem {
   id: string;
   kind: "progress" | "review" | "decision" | "warning" | "completed";
@@ -35,7 +46,20 @@ export interface ActivityItem {
 
 export interface AssistantInput {
   messages: ReadonlyArray<Pick<Message, "role" | "content">>;
+  context: ReadonlyArray<AssistantContextBlock>;
   signal?: AbortSignal;
+}
+
+export interface AssistantContextBlock {
+  id: string;
+  source: string;
+  title: string;
+  /**
+   * Trust is explicit so adapters can tell the model whether a block is an
+   * owner preference, canonical application state, or untrusted evidence.
+   */
+  trust: "owner" | "application" | "external";
+  content: string;
 }
 
 export interface AssistantUsage {
@@ -82,6 +106,10 @@ export interface HomeState {
   thread: Thread;
   messages: Message[];
   activity: ActivityItem[];
+  personalisation: {
+    ownerDisplayName: string | null;
+    assistantDisplayName: string | null;
+  };
 }
 
 export type ChatStreamEvent =

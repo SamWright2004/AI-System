@@ -39,6 +39,10 @@ export function App() {
               thread: event.thread,
               messages: current?.messages ?? [],
               activity: current?.activity ?? [],
+              personalisation: current?.personalisation ?? {
+                ownerDisplayName: null,
+                assistantDisplayName: null,
+              },
             }));
           }
           if (event.type === "user_message") {
@@ -83,6 +87,8 @@ export function App() {
   }
 
   const hasConversation = Boolean(home?.messages.length || streamingText);
+  const assistantDisplayName = home?.personalisation.assistantDisplayName || "Local mind";
+  const ownerDisplayName = home?.personalisation.ownerDisplayName;
 
   return (
     <main className="shell">
@@ -92,7 +98,7 @@ export function App() {
       <header className="system-bar">
         <div className="system-mark">
           <span className="system-mark__pulse" />
-          <span>Local mind</span>
+          <span>{assistantDisplayName}</span>
         </div>
         <div className="system-state">{isThinking ? "thinking" : "present"}</div>
       </header>
@@ -101,7 +107,7 @@ export function App() {
         <Brain listening={isThinking} />
         {!hasConversation ? (
           <div className="resting-copy">
-            <p>I’m here.</p>
+            <p>{ownerDisplayName ? `I’m here, ${ownerDisplayName}.` : "I’m here."}</p>
           </div>
         ) : null}
         <Conversation messages={home?.messages ?? []} streamingText={streamingText} />

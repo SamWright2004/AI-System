@@ -3,6 +3,7 @@ dist/
 coverage/
 .env
 .env.local
+config/personalisation/profile.local.json
 *.log
 .DS_Store
 Thumbs.db

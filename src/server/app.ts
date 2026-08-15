@@ -4,7 +4,9 @@ import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import { ChatService } from "../core/chat/chat-service.js";
+import { ContextAssembler } from "../core/context/context-assembler.js";
 import { createAssistant } from "../infrastructure/ai/create-assistant.js";
+import { FilePersonalisationSource } from "../infrastructure/context/file-personalisation-source.js";
 import { createPool } from "../infrastructure/db/pool.js";
 import { PostgresStore } from "../infrastructure/db/postgres-store.js";
 import { AppError } from "../shared/errors.js";
@@ -27,7 +29,19 @@ export async function createApp(config: AppConfig) {
   const pool = createPool(config.databaseUrl);
   const store = new PostgresStore(pool);
   const assistant = await createAssistant(config);
-  const chatService = new ChatService(store, store, assistant);
+  const personalisation = new FilePersonalisationSource(config.personalisationFile);
+  const contextAssembler = new ContextAssembler(store, {
+    inputTokenBudget: config.contextInputTokenBudget,
+    historyPageSize: config.contextHistoryPageSize,
+    sources: [personalisation],
+  });
+  const chatService = new ChatService(
+    store,
+    store,
+    assistant,
+    contextAssembler,
+    personalisation,
+  );
 
   registerHealthRoute(app, { pool, assistant, config });
   registerChatRoutes(app, { chatService, activity: store });

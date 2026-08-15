@@ -4,6 +4,7 @@ import type {
   AssistantStreamChunk,
   AssistantUsage,
 } from "../../core/chat/types.js";
+import { composeInstructions } from "./compose-instructions.js";
 
 interface OllamaChunk {
   message?: {
@@ -84,7 +85,7 @@ export class OllamaAssistantGateway implements AssistantGateway {
         messages: [
           {
             role: "system",
-            content: this.instructions,
+            content: composeInstructions(this.instructions, input.context),
           },
           ...input.messages.map((message) => ({
             role: message.role,

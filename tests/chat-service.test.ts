@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ChatService } from "../src/core/chat/chat-service.js";
+import { ContextAssembler } from "../src/core/context/context-assembler.js";
 import type {
   ActivityItem,
   ActivityRepository,
@@ -7,6 +8,7 @@ import type {
   AssistantInput,
   ConversationRepository,
   Message,
+  MessagePageCursor,
   Thread,
 } from "../src/core/chat/types.js";
 
@@ -34,6 +36,29 @@ class MemoryStore implements ConversationRepository, ActivityRepository {
 
   public async listMessages(_threadId: string, limit = 100) {
     return this.messages.slice(-limit);
+  }
+
+  public async listMessagePage(input: {
+    threadId: string;
+    limit: number;
+    before?: MessagePageCursor;
+  }) {
+    const newestFirst = [...this.messages].reverse();
+    const start = input.before
+      ? Math.max(
+          0,
+          newestFirst.findIndex((message) => message.id === input.before?.id) + 1,
+        )
+      : 0;
+    const messages = newestFirst.slice(start, start + input.limit);
+    const hasMore = newestFirst.length > start + input.limit;
+    const oldest = messages.at(-1);
+
+    return {
+      messages,
+      nextCursor:
+        hasMore && oldest ? { id: oldest.id, createdAt: oldest.createdAt } : null,
+    };
   }
 
   public async addMessage(input: {
@@ -99,7 +124,11 @@ class FixedAssistant implements AssistantGateway {
 describe("ChatService", () => {
   it("persists both sides of a streamed exchange", async () => {
     const store = new MemoryStore();
-    const service = new ChatService(store, store, new FixedAssistant());
+    const context = new ContextAssembler(store, {
+      inputTokenBudget: 1_000,
+      historyPageSize: 10,
+    });
+    const service = new ChatService(store, store, new FixedAssistant(), context);
     const events = [];
 
     for await (const event of service.reply({ content: "Are you awake?" })) {
@@ -118,5 +147,10 @@ describe("ChatService", () => {
       "assistant_message",
       "done",
     ]);
+    expect(store.messages.at(-1)?.metadata.context).toMatchObject({
+      version: 1,
+      budgetTokens: 1_000,
+      history: { messagesSelected: 1 },
+    });
   });
 });

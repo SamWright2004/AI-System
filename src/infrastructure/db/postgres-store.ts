@@ -3,8 +3,11 @@ import type {
   ActivityRepository,
   ConversationRepository,
   Message,
+  MessagePage,
+  MessagePageCursor,
   Thread,
 } from "../../core/chat/types.js";
+import type { ContextHistoryRepository } from "../../core/context/types.js";
 import type { DatabasePool } from "./pool.js";
 
 interface ThreadRow {
@@ -81,7 +84,9 @@ function mapActivity(row: ActivityRow): ActivityItem {
   };
 }
 
-export class PostgresStore implements ConversationRepository, ActivityRepository {
+export class PostgresStore
+  implements ConversationRepository, ActivityRepository, ContextHistoryRepository
+{
   public constructor(private readonly pool: DatabasePool) {}
 
   public async ensurePrimaryThread(): Promise<Thread> {
@@ -124,13 +129,53 @@ export class PostgresStore implements ConversationRepository, ActivityRepository
          SELECT id, thread_id, role, content, status, provider, model, input_tokens, output_tokens, metadata, created_at
          FROM messages
          WHERE thread_id = $1
-         ORDER BY created_at DESC
+         ORDER BY created_at DESC, id DESC
          LIMIT $2
        ) recent
-       ORDER BY created_at ASC`,
+       ORDER BY created_at ASC, id ASC`,
       [threadId, limit],
     );
     return result.rows.map(mapMessage);
+  }
+
+  public async listMessagePage(input: {
+    threadId: string;
+    limit: number;
+    before?: MessagePageCursor;
+  }): Promise<MessagePage> {
+    if (!Number.isInteger(input.limit) || input.limit < 1) {
+      throw new Error("Message page limit must be a positive integer.");
+    }
+
+    const result = await this.pool.query<MessageRow>(
+      `SELECT id, thread_id, role, content, status, provider, model, input_tokens, output_tokens, metadata, created_at
+       FROM messages
+       WHERE thread_id = $1
+         AND (
+           $2::timestamptz IS NULL
+           OR (created_at, id) < ($2::timestamptz, $3::uuid)
+         )
+       ORDER BY created_at DESC, id DESC
+       LIMIT $4`,
+      [
+        input.threadId,
+        input.before?.createdAt ?? null,
+        input.before?.id ?? null,
+        input.limit + 1,
+      ],
+    );
+
+    const hasMore = result.rows.length > input.limit;
+    const messages = result.rows.slice(0, input.limit).map(mapMessage);
+    const oldestMessage = messages.at(-1);
+
+    return {
+      messages,
+      nextCursor:
+        hasMore && oldestMessage
+          ? { createdAt: oldestMessage.createdAt, id: oldestMessage.id }
+          : null,
+    };
   }
 
   public async addMessage(input: {

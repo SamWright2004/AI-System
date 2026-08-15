@@ -10,6 +10,7 @@ export interface UiState {
   thread: Thread;
   messages: Message[];
   activity: ActivityItem[];
+  personalisation: HomeState["personalisation"];
 }
 
 export async function loadHome(): Promise<HomeState> {

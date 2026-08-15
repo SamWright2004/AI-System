@@ -32,6 +32,13 @@ const envSchema = z.object({
   OLLAMA_CHAT_MODEL: z.string().default("qwen3.5:4b"),
   OLLAMA_THINK: booleanFromString.default(false),
 
+  CONTEXT_INPUT_TOKEN_BUDGET: z.coerce.number().int().min(512).max(1_000_000).default(12_000),
+  CONTEXT_HISTORY_PAGE_SIZE: z.coerce.number().int().min(10).max(250).default(50),
+  PERSONALISATION_FILE: z
+    .string()
+    .min(1)
+    .default("config/personalisation/profile.local.json"),
+
   APP_SECRET: z.string().min(16).default("development-only-secret-change-me"),
   SERVE_UI: booleanFromString.default(false),
 });
@@ -67,6 +74,10 @@ export const config = Object.freeze({
   ollamaBaseUrl: parsed.data.OLLAMA_BASE_URL,
   ollamaChatModel: parsed.data.OLLAMA_CHAT_MODEL,
   ollamaThink: parsed.data.OLLAMA_THINK,
+
+  contextInputTokenBudget: parsed.data.CONTEXT_INPUT_TOKEN_BUDGET,
+  contextHistoryPageSize: parsed.data.CONTEXT_HISTORY_PAGE_SIZE,
+  personalisationFile: parsed.data.PERSONALISATION_FILE,
 
   appSecret: parsed.data.APP_SECRET,
   serveUi: parsed.data.SERVE_UI,

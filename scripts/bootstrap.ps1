@@ -33,6 +33,14 @@ if (-not (Test-Path ".env")) {
     Write-Host "Keeping the existing .env configuration."
 }
 
+$PersonalisationFile = "config/personalisation/profile.local.json"
+if (-not (Test-Path $PersonalisationFile)) {
+    Copy-Item "config/personalisation/profile.example.json" $PersonalisationFile
+    Write-Host "Created local personalisation profile."
+} else {
+    Write-Host "Keeping the existing personalisation profile."
+}
+
 pnpm install
 docker compose up -d
 
@@ -57,3 +65,4 @@ pnpm db:seed
 Write-Host ""
 Write-Host "Foundation ready. Run: pnpm dev"
 Write-Host "Then open: http://127.0.0.1:5173"
+Write-Host "Personalise it in: $PersonalisationFile"
