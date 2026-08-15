@@ -15,10 +15,9 @@ export class MockAssistantGateway implements AssistantGateway {
       "Once you connect a model provider, this same interface will stream real replies without changing the rest of the system.";
 
     for (const token of response.match(/\S+\s*/g) ?? []) {
-      if (input.signal?.aborted) {
-        throw new Error("Response cancelled.");
-      }
+      input.signal?.throwIfAborted();
       await wait(18);
+      input.signal?.throwIfAborted();
       yield {
         type: "delta",
         text: token,

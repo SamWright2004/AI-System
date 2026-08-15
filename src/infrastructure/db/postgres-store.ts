@@ -6,6 +6,7 @@ import type {
   MessagePage,
   MessagePageCursor,
   Thread,
+  ThreadSummary,
 } from "../../core/chat/types.js";
 import type { ContextHistoryRepository } from "../../core/context/types.js";
 import type { DatabasePool } from "./pool.js";
@@ -30,6 +31,11 @@ interface MessageRow {
   input_tokens: number | null;
   output_tokens: number | null;
   metadata: Record<string, unknown>;
+}
+
+interface ThreadSummaryRow extends ThreadRow {
+  message_count: number;
+  last_message_preview: string | null;
 }
 
 interface ActivityRow {
@@ -72,6 +78,14 @@ function mapMessage(row: MessageRow): Message {
   };
 }
 
+function mapThreadSummary(row: ThreadSummaryRow): ThreadSummary {
+  return {
+    ...mapThread(row),
+    messageCount: row.message_count,
+    lastMessagePreview: row.last_message_preview,
+  };
+}
+
 function mapActivity(row: ActivityRow): ActivityItem {
   return {
     id: row.id,
@@ -89,27 +103,49 @@ export class PostgresStore
 {
   public constructor(private readonly pool: DatabasePool) {}
 
-  public async ensurePrimaryThread(): Promise<Thread> {
-    await this.pool.query(
-      `INSERT INTO threads (title, kind)
-       VALUES ('Home', 'primary')
-       ON CONFLICT DO NOTHING`,
-    );
-
+  public async createThread(input: { title: string; kind?: Thread["kind"] }): Promise<Thread> {
     const result = await this.pool.query<ThreadRow>(
-      `SELECT id, title, kind, created_at, updated_at
-       FROM threads
-       WHERE kind = 'primary' AND archived_at IS NULL
-       ORDER BY created_at ASC
-       LIMIT 1`,
+      `INSERT INTO threads (title, kind)
+       VALUES ($1, $2)
+       RETURNING id, title, kind, created_at, updated_at`,
+      [input.title, input.kind ?? "temporary"],
     );
 
     const row = result.rows[0];
     if (!row) {
-      throw new Error("Failed to create the primary conversation.");
+      throw new Error("Failed to create the conversation.");
     }
 
     return mapThread(row);
+  }
+
+  public async listThreads(limit = 80): Promise<ThreadSummary[]> {
+    const result = await this.pool.query<ThreadSummaryRow>(
+      `SELECT
+         thread.id,
+         thread.title,
+         thread.kind,
+         thread.created_at,
+         thread.updated_at,
+         (
+           SELECT COUNT(*)::int
+           FROM messages
+           WHERE messages.thread_id = thread.id
+         ) AS message_count,
+         (
+           SELECT LEFT(message.content, 160)
+           FROM messages AS message
+           WHERE message.thread_id = thread.id
+           ORDER BY message.created_at DESC, message.id DESC
+           LIMIT 1
+         ) AS last_message_preview
+       FROM threads AS thread
+       WHERE thread.archived_at IS NULL
+       ORDER BY thread.updated_at DESC, thread.id DESC
+       LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map(mapThreadSummary);
   }
 
   public async findThread(threadId: string): Promise<Thread | null> {
@@ -120,6 +156,28 @@ export class PostgresStore
       [threadId],
     );
     return result.rows[0] ? mapThread(result.rows[0]) : null;
+  }
+
+  public async updateThreadTitle(threadId: string, title: string): Promise<Thread | null> {
+    const result = await this.pool.query<ThreadRow>(
+      `UPDATE threads
+       SET title = $2, updated_at = now()
+       WHERE id = $1 AND archived_at IS NULL
+       RETURNING id, title, kind, created_at, updated_at`,
+      [threadId, title],
+    );
+    return result.rows[0] ? mapThread(result.rows[0]) : null;
+  }
+
+  public async archiveThread(threadId: string): Promise<boolean> {
+    const result = await this.pool.query<{ id: string }>(
+      `UPDATE threads
+       SET archived_at = now(), updated_at = now()
+       WHERE id = $1 AND archived_at IS NULL
+       RETURNING id`,
+      [threadId],
+    );
+    return result.rowCount === 1;
   }
 
   public async listMessages(threadId: string, limit = 100): Promise<Message[]> {
@@ -136,6 +194,29 @@ export class PostgresStore
       [threadId, limit],
     );
     return result.rows.map(mapMessage);
+  }
+
+  public async findMessage(messageId: string): Promise<Message | null> {
+    const result = await this.pool.query<MessageRow>(
+      `SELECT id, thread_id, role, content, status, provider, model, input_tokens, output_tokens, metadata, created_at
+       FROM messages
+       WHERE id = $1`,
+      [messageId],
+    );
+    return result.rows[0] ? mapMessage(result.rows[0]) : null;
+  }
+
+  public async hasMessagesAfter(message: Message): Promise<boolean> {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM messages
+         WHERE thread_id = $1
+           AND (created_at, id) > ($2::timestamptz, $3::uuid)
+       ) AS exists`,
+      [message.threadId, message.createdAt, message.id],
+    );
+    return result.rows[0]?.exists ?? false;
   }
 
   public async listMessagePage(input: {
@@ -157,12 +238,7 @@ export class PostgresStore
          )
        ORDER BY created_at DESC, id DESC
        LIMIT $4`,
-      [
-        input.threadId,
-        input.before?.createdAt ?? null,
-        input.before?.id ?? null,
-        input.limit + 1,
-      ],
+      [input.threadId, input.before?.createdAt ?? null, input.before?.id ?? null, input.limit + 1],
     );
 
     const hasMore = result.rows.length > input.limit;

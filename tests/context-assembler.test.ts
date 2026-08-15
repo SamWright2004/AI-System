@@ -50,8 +50,7 @@ class PagedHistory implements ContextHistoryRepository {
 
     return {
       messages,
-      nextCursor:
-        hasMore && oldest ? { id: oldest.id, createdAt: oldest.createdAt } : null,
+      nextCursor: hasMore && oldest ? { id: oldest.id, createdAt: oldest.createdAt } : null,
     };
   }
 }
@@ -117,6 +116,38 @@ describe("ContextAssembler", () => {
 
     expect(result.messages).toEqual([{ role: "user", content: "33" }]);
     expect(result.diagnostics.history.incoherentMessagesExcluded).toBe(1);
+  });
+
+  it("excludes cancelled and failed assistant output from future model context", async () => {
+    const cancelled = {
+      ...message(2, "assistant", "cancelled text"),
+      status: "cancelled" as const,
+    };
+    const failed = { ...message(4, "assistant", "failed text"), status: "failed" as const };
+    const currentMessage = message(5, "user", "current");
+    const assembler = new ContextAssembler(
+      new PagedHistory([
+        message(1, "user", "first request"),
+        cancelled,
+        message(3, "user", "second request"),
+        failed,
+        currentMessage,
+      ]),
+      {
+        inputTokenBudget: 100,
+        historyPageSize: 10,
+        estimator: exactEstimator,
+      },
+    );
+
+    const result = await assembler.assemble({ thread, currentMessage });
+
+    expect(result.messages).not.toContainEqual({ role: "assistant", content: "cancelled text" });
+    expect(result.messages).not.toContainEqual({ role: "assistant", content: "failed text" });
+    expect(result.diagnostics.history).toMatchObject({
+      cancelledMessagesExcluded: 1,
+      failedMessagesExcluded: 1,
+    });
   });
 
   it("allocates source blocks by priority after reserving the current message", async () => {

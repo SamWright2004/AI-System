@@ -52,13 +52,13 @@ message, admits owner/application context blocks by priority, and then walks can
 cursor pagination. Older conversation is selected as complete user/assistant turns until the configured token
 budget is full. The original history is never deleted or rewritten when a request is compacted.
 
-| Extension point             | Present implementation                  | Intended additions                         |
-| --------------------------- | --------------------------------------- | ------------------------------------------ |
-| `ContextHistoryRepository`  | cursor-paged PostgreSQL messages        | alternate local stores                     |
-| `ContextSource`             | Git-ignored personalisation JSON        | approved memory, active project, documents |
-| `TokenEstimator`            | conservative UTF-8 heuristic           | provider-specific tokenisers               |
-| `AssistantContextBlock`     | labelled owner-trusted profile          | application and external evidence blocks   |
-| context diagnostics         | budget, pages, turns and omitted blocks | retrieval quality and evaluation signals   |
+| Extension point            | Present implementation                  | Intended additions                         |
+| -------------------------- | --------------------------------------- | ------------------------------------------ |
+| `ContextHistoryRepository` | cursor-paged PostgreSQL messages        | alternate local stores                     |
+| `ContextSource`            | Git-ignored personalisation JSON        | approved memory, active project, documents |
+| `TokenEstimator`           | conservative UTF-8 heuristic            | provider-specific tokenisers               |
+| `AssistantContextBlock`    | labelled owner-trusted profile          | application and external evidence blocks   |
+| context diagnostics        | budget, pages, turns and omitted blocks | retrieval quality and evaluation signals   |
 
 Trust travels with every supplemental block. Model adapters explicitly label owner settings, canonical
 application state and untrusted external evidence when composing their system instructions. This label does
@@ -66,7 +66,21 @@ not grant tool authority; deterministic application policy remains outside the m
 
 The local personalisation file is deliberately separate from the versioned base prompt. The prompt defines
 the system's stable character and safety rules; the ignored local profile carries names, tone and working
-preferences. It is read for each reply so personal adjustments do not require a rebuild or restart.
+preferences. It is read for each reply and can be updated through the local settings API, so personal
+adjustments do not require a rebuild or restart.
+
+## Conversation and generation lifecycle
+
+The browser session and durable conversation history are intentionally different things. Bootstrap returns a
+list of stored threads, activity and settings, but does not select a thread. The UI therefore opens on a fresh
+draft every time; the first sent message creates the durable thread. Opening an old conversation is always an
+explicit action.
+
+An `AbortSignal` travels from the browser's Stop control through `fetch`, Fastify, `ChatService` and the model
+adapter. Completed, cancelled and failed assistant messages are persisted as distinct states. If output has
+already begun, the partial text is kept and retry is disabled. If a transient provider failure occurs before
+output, retry reuses the existing user message and is rejected if any later message exists. This makes retry
+safe by construction instead of relying on the interface to avoid duplicates.
 
 ## Memory is not chat history
 

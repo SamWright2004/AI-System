@@ -1,12 +1,17 @@
-import { readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { z } from "zod";
 import type {
   ContextCandidate,
   ContextSource,
   ContextSourceInput,
-  PersonalisationReader,
-  PersonalisationSummary,
 } from "../../core/context/types.js";
+import {
+  defaultPersonalisationProfile,
+  type PersonalisationProfile,
+  type PersonalisationStore,
+} from "../../core/settings/types.js";
 
 const shortText = z.string().trim().max(120);
 
@@ -44,8 +49,6 @@ const personalisationProfileSchema = z
     pinnedInstructions: z.array(z.string().trim().min(1).max(1_000)).max(30).default([]),
   })
   .strict();
-
-type PersonalisationProfile = z.infer<typeof personalisationProfileSchema>;
 
 function renderProfile(profile: PersonalisationProfile): string {
   const lines = [
@@ -87,7 +90,7 @@ function renderProfile(profile: PersonalisationProfile): string {
   return lines.join("\n");
 }
 
-export class FilePersonalisationSource implements ContextSource, PersonalisationReader {
+export class FilePersonalisationSource implements ContextSource, PersonalisationStore {
   public readonly id = "personalisation-file";
 
   public constructor(private readonly filePath: string) {}
@@ -108,12 +111,32 @@ export class FilePersonalisationSource implements ContextSource, Personalisation
     ];
   }
 
-  public async getSummary(): Promise<PersonalisationSummary> {
-    const profile = await this.readProfile();
-    return {
-      ownerDisplayName: profile?.owner.displayName || null,
-      assistantDisplayName: profile?.assistant.displayName || null,
-    };
+  public async getProfile(): Promise<PersonalisationProfile> {
+    return (await this.readProfile()) ?? structuredClone(defaultPersonalisationProfile);
+  }
+
+  public async updateProfile(profile: PersonalisationProfile): Promise<PersonalisationProfile> {
+    const parsed = personalisationProfileSchema.safeParse(profile);
+    if (!parsed.success) {
+      const detail = parsed.error.issues
+        .map((issue) => `${issue.path.join(".") || "profile"}: ${issue.message}`)
+        .join("; ");
+      throw new Error(`Invalid personalisation profile: ${detail}`);
+    }
+
+    await mkdir(dirname(this.filePath), { recursive: true });
+    const temporaryPath = `${this.filePath}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(temporaryPath, `${JSON.stringify(parsed.data, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    try {
+      await rename(temporaryPath, this.filePath);
+    } catch (error) {
+      await rm(temporaryPath, { force: true }).catch(() => undefined);
+      throw error;
+    }
+    return parsed.data;
   }
 
   private async readProfile(): Promise<PersonalisationProfile | null> {

@@ -28,12 +28,6 @@ const activity = [
 ] as const;
 
 async function seed() {
-  await pool.query(
-    `INSERT INTO threads (title, kind)
-     VALUES ('Home', 'primary')
-     ON CONFLICT DO NOTHING`,
-  );
-
   for (const item of activity) {
     await pool.query(
       `INSERT INTO activity_items (dedupe_key, kind, title, body, requires_review)

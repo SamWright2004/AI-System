@@ -34,10 +34,7 @@ const envSchema = z.object({
 
   CONTEXT_INPUT_TOKEN_BUDGET: z.coerce.number().int().min(512).max(1_000_000).default(12_000),
   CONTEXT_HISTORY_PAGE_SIZE: z.coerce.number().int().min(10).max(250).default(50),
-  PERSONALISATION_FILE: z
-    .string()
-    .min(1)
-    .default("config/personalisation/profile.local.json"),
+  PERSONALISATION_FILE: z.string().min(1).default("config/personalisation/profile.local.json"),
 
   APP_SECRET: z.string().min(16).default("development-only-secret-change-me"),
   SERVE_UI: booleanFromString.default(false),

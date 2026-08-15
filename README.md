@@ -1,18 +1,21 @@
 # Personal AI Foundation
 
 A local-first starting point for a private, single-user AI collaborator. The resting interface is deliberately
-quiet: a waiting artificial mind, one conversation, and a first-person account of background work. Projects,
-files and detailed controls appear when they are relevant instead of permanently cluttering the home screen.
+quiet: a waiting artificial mind, a fresh conversation, and a first-person account of background work.
+Previous conversations, settings and detailed controls remain one click away instead of permanently cluttering
+the home screen.
 
 This is the foundation, not a fake finished assistant. It currently provides:
 
-- a working React interface with streamed replies;
+- a working React interface with streamed replies, stopping and explicit generation states;
 - a local Fastify service bound to `127.0.0.1`;
 - PostgreSQL 18 with pgvector for conversations, memory, projects and provenance;
 - a durable background worker using the same database rather than another infrastructure service;
 - provider isolation, with local Ollama, safe mock mode and an optional OpenAI Responses API adapter;
 - token-budgeted, paginated context assembly with labelled, trust-aware extension points;
-- a private hot-reloaded personalisation profile that can name both sides and shape working style;
+- durable searchable conversation history while every application launch opens a clean draft;
+- automatic conversation titles, rename/archive controls, message copy and Markdown/JSON export;
+- private hot-reloaded personalisation that can be edited in-app to shape identity and working style;
 - persisted provider, token, timing and context-selection diagnostics on assistant messages;
 - deterministic tool-risk and approval policy;
 - audit, approval, run, outbox and activity records ready for later capabilities;
@@ -54,10 +57,13 @@ the adapter records Ollama's prompt, generation and timing telemetry when it is 
 
 ## Make it yours
 
-The bootstrap creates `config/personalisation/profile.local.json` from the committed example. That local file
-is ignored by Git. Edit the owner and assistant display names, tone, response detail, initiative and pinned
-instructions there. The model-side profile is re-read for every reply, so behaviour edits need no restart; a
-page refresh updates the quiet header and resting greeting.
+Open Settings from the top-right control or press `Ctrl+,`. You can edit the owner and assistant names, locale,
+timezone, tone, response detail, initiative, uncertainty behaviour and pinned instructions without leaving the
+application. You can also choose whether Enter or `Ctrl+Enter` sends a message.
+
+The bootstrap stores those settings in `config/personalisation/profile.local.json`. That local file is ignored
+by Git and remains available for manual editing. The model-side profile is re-read for every reply, so behaviour
+edits need no restart.
 
 For an existing checkout that predates this feature, create it once in PowerShell:
 
@@ -71,6 +77,25 @@ Conversation history is selected by `CONTEXT_INPUT_TOKEN_BUDGET` and read backwa
 The current user message is always preserved, older history is admitted as complete turns, and the resulting
 selection diagnostics are stored with the reply. Future memory and project retrieval implement the same
 `ContextSource` contract rather than modifying the chat pipeline.
+
+## Use it day to day
+
+The application intentionally starts with a fresh conversation even when older chats exist. A database thread
+is created only when you send the first message, so merely opening the application does not add empty history.
+
+| Action                     | Control                               |
+| -------------------------- | ------------------------------------- |
+| Open/search history        | top-left menu or `Ctrl+K`             |
+| Start a fresh conversation | history button or `Ctrl+N`            |
+| Open settings              | top-right settings or `Ctrl+,`        |
+| Stop a response            | stop button or `Escape`               |
+| Add a line break           | `Shift+Enter` in Enter-to-send mode   |
+| Copy a message             | hover the message and choose Copy     |
+| Export a conversation      | Markdown or JSON above the transcript |
+
+Stopping preserves any text already produced and marks it as stopped. Provider failures are classified into
+useful states. A safe Retry action appears only when generation failed before any reply text was produced, so
+retrying cannot silently duplicate a user turn or a partial answer.
 
 ## Optional: connect OpenAI
 
@@ -86,18 +111,19 @@ Restart `pnpm dev`. The key remains server-side and `.env` is excluded from Git.
 
 ## Everyday commands
 
-| Command               | Purpose                                          |
-| --------------------- | ------------------------------------------------ |
-| `pnpm dev`            | Run the interface, local API and worker together |
-| `pnpm test`           | Run unit tests                                   |
-| `pnpm typecheck`      | Check TypeScript without emitting files          |
-| `pnpm lint`           | Run static analysis                              |
-| `pnpm format`         | Format the repository                            |
-| `pnpm build`          | Produce the interface, API and worker builds     |
-| `pnpm verify`         | Run every local quality gate used by CI          |
-| `pnpm db:migrate`     | Apply new immutable SQL migrations               |
-| `pnpm db:seed`        | Add safe, repeatable starter records             |
-| `docker compose down` | Stop the database without deleting its volume    |
+| Command                 | Purpose                                          |
+| ----------------------- | ------------------------------------------------ |
+| `pnpm dev`              | Run the interface, local API and worker together |
+| `pnpm test`             | Run unit tests                                   |
+| `pnpm test:integration` | Run PostgreSQL-backed integration tests          |
+| `pnpm typecheck`        | Check TypeScript without emitting files          |
+| `pnpm lint`             | Run static analysis                              |
+| `pnpm format`           | Format the repository                            |
+| `pnpm build`            | Produce the interface, API and worker builds     |
+| `pnpm verify`           | Run every local quality gate used by CI          |
+| `pnpm db:migrate`       | Apply new immutable SQL migrations               |
+| `pnpm db:seed`          | Add safe, repeatable starter records             |
+| `docker compose down`   | Stop the database without deleting its volume    |
 
 Do not run `docker compose down -v` casually: `-v` deletes the local database volume.
 
