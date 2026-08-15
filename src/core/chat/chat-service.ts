@@ -101,12 +101,8 @@ export class ChatService {
         content: completeText,
         provider: this.assistant.provider,
         model: this.assistant.model,
-        ...(usage?.inputTokens !== undefined
-          ? { inputTokens: usage.inputTokens }
-          : {}),
-        ...(usage?.outputTokens !== undefined
-          ? { outputTokens: usage.outputTokens }
-          : {}),
+        ...(usage?.inputTokens !== undefined ? { inputTokens: usage.inputTokens } : {}),
+        ...(usage?.outputTokens !== undefined ? { outputTokens: usage.outputTokens } : {}),
         metadata: {
           timing,
         },

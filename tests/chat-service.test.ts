@@ -76,7 +76,6 @@ class FixedAssistant implements AssistantGateway {
   public readonly model = "fixed";
 
   public async *streamReply(_input: AssistantInput) {
-    
     yield {
       type: "delta" as const,
       text: "Hello ",

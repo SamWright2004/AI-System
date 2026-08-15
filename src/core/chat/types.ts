@@ -48,8 +48,7 @@ export interface AssistantUsage {
 }
 
 export type AssistantStreamChunk =
-  | { type: "delta"; text: string }
-  | { type: "usage"; usage: AssistantUsage };
+  { type: "delta"; text: string } | { type: "usage"; usage: AssistantUsage };
 
 export interface AssistantGateway {
   readonly provider: string;
