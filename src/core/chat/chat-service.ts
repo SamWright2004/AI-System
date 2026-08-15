@@ -5,6 +5,7 @@ import type {
   ChatStreamEvent,
   ConversationRepository,
   HomeState,
+  AssistantUsage,
 } from "./types.js";
 
 export class ChatService {
@@ -48,15 +49,30 @@ export class ChatService {
 
     const context = await this.conversations.listMessages(thread.id, 60);
     let completeText = "";
+    let usage: AssistantUsage | undefined;
+
+    const startedAt = performance.now();
+    let firstTokenMs: number | null = null;
 
     try {
-      for await (const delta of this.assistant.streamReply({
+      for await (const chunk of this.assistant.streamReply({
         messages: context,
         ...(input.signal ? { signal: input.signal } : {}),
       })) {
-        completeText += delta;
-        yield { type: "delta", text: delta };
+        if (chunk.type === "usage") {
+          usage = chunk.usage;
+          continue;
+        }
+
+        if (firstTokenMs === null) {
+          firstTokenMs = Math.round(performance.now() - startedAt);
+        }
+
+        completeText += chunk.text;
+        yield { type: "delta", text: chunk.text };
       }
+
+      const wallMs = Math.round(performance.now() - startedAt);
 
       const assistantMessage = await this.conversations.addMessage({
         threadId: thread.id,
@@ -64,6 +80,18 @@ export class ChatService {
         content: completeText,
         provider: this.assistant.provider,
         model: this.assistant.model,
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens,
+        metadata: {
+          timing: {
+            wallMs,
+            firstTokenMs,
+            providerTotalMs: usage?.providerTotalMs,
+            providerLoadMs: usage?.providerLoadMs,
+            providerPromptEvalMs: usage?.providerPromptEvalMs,
+            providerGenerationMs: usage?.providerGenerationMs,
+          },
+        },
       });
 
       yield { type: "assistant_message", message: assistantMessage };

@@ -17,6 +17,9 @@ export interface Message {
   status: MessageStatus;
   provider: string | null;
   model: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  metadata: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -35,10 +38,23 @@ export interface AssistantInput {
   signal?: AbortSignal;
 }
 
+export interface AssistantUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  providerTotalMs?: number;
+  providerLoadMs?: number;
+  providerPromptEvalMs?: number;
+  providerGenerationMs?: number;
+}
+
+export type AssistantStreamChunk =
+  | { type: "delta"; text: string }
+  | { type: "usage"; usage: AssistantUsage };
+
 export interface AssistantGateway {
   readonly provider: string;
   readonly model: string;
-  streamReply(input: AssistantInput): AsyncIterable<string>;
+  streamReply(input: AssistantInput): AsyncIterable<AssistantStreamChunk>;
 }
 
 export interface ConversationRepository {
@@ -52,6 +68,9 @@ export interface ConversationRepository {
     status?: MessageStatus;
     provider?: string;
     model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    metadata?: Record<string, unknown>;
   }): Promise<Message>;
 }
 

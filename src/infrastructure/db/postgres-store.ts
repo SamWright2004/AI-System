@@ -24,6 +24,9 @@ interface MessageRow {
   provider: string | null;
   model: string | null;
   created_at: Date | string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  metadata: Record<string, unknown>;
 }
 
 interface ActivityRow {
@@ -60,6 +63,9 @@ function mapMessage(row: MessageRow): Message {
     provider: row.provider,
     model: row.model,
     createdAt: asIso(row.created_at),
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
+    metadata: row.metadata,
   };
 }
 
@@ -113,9 +119,9 @@ export class PostgresStore implements ConversationRepository, ActivityRepository
 
   public async listMessages(threadId: string, limit = 100): Promise<Message[]> {
     const result = await this.pool.query<MessageRow>(
-      `SELECT id, thread_id, role, content, status, provider, model, created_at
+      `SELECT id, thread_id, role, content, status, provider, model, input_tokens, output_tokens, metadata, created_at
        FROM (
-         SELECT id, thread_id, role, content, status, provider, model, created_at
+         SELECT id, thread_id, role, content, status, provider, model, input_tokens, output_tokens, metadata, created_at
          FROM messages
          WHERE thread_id = $1
          ORDER BY created_at DESC
@@ -134,11 +140,14 @@ export class PostgresStore implements ConversationRepository, ActivityRepository
     status?: Message["status"];
     provider?: string;
     model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    metadata?: Record<string, unknown>;
   }): Promise<Message> {
     const result = await this.pool.query<MessageRow>(
-      `INSERT INTO messages (thread_id, role, content, status, provider, model)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, thread_id, role, content, status, provider, model, created_at`,
+      `INSERT INTO messages (thread_id, role, content, status, provider, model, input_tokens, output_tokens, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, thread_id, role, content, status, provider, model, input_tokens, output_tokens, metadata, created_at`,
       [
         input.threadId,
         input.role,
@@ -146,6 +155,9 @@ export class PostgresStore implements ConversationRepository, ActivityRepository
         input.status ?? "complete",
         input.provider ?? null,
         input.model ?? null,
+        input.inputTokens ?? null,
+        input.outputTokens ?? null,
+        input.metadata ?? {},
       ],
     );
 

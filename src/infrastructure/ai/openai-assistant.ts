@@ -14,7 +14,7 @@ export class OpenAiAssistantGateway implements AssistantGateway {
 
   private readonly client: OpenAI;
 
-  public async *streamReply(input: AssistantInput): AsyncIterable<string> {
+  public async *streamReply(input: AssistantInput): AsyncIterable<{ type: "delta"; text: string }> {
     const stream = await this.client.responses.create(
       {
         model: this.model,
@@ -31,7 +31,10 @@ export class OpenAiAssistantGateway implements AssistantGateway {
 
     for await (const event of stream) {
       if (event.type === "response.output_text.delta") {
-        yield event.delta;
+        yield {
+          type: "delta",
+          text: event.delta,
+        };
       }
     }
   }

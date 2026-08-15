@@ -1,4 +1,4 @@
-import type { AssistantGateway, AssistantInput } from "../../core/chat/types.js";
+import type { AssistantGateway, AssistantInput, AssistantUsage } from "../../core/chat/types.js";
 
 interface OllamaChunk {
   message?: {
@@ -6,6 +6,27 @@ interface OllamaChunk {
   };
   error?: string;
   done?: boolean;
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_count?: number;
+  prompt_eval_duration?: number;
+  eval_count?: number;
+  eval_duration?: number;
+}
+
+function nanosecondsToMilliseconds(value?: number): number | undefined {
+  return value === undefined ? undefined : value / 1_000_000;
+}
+
+function usageFromChunk(chunk: OllamaChunk): AssistantUsage {
+  return {
+    inputTokens: chunk.prompt_eval_count,
+    outputTokens: chunk.eval_count,
+    providerTotalMs: nanosecondsToMilliseconds(chunk.total_duration),
+    providerLoadMs: nanosecondsToMilliseconds(chunk.load_duration),
+    providerPromptEvalMs: nanosecondsToMilliseconds(chunk.prompt_eval_duration),
+    providerGenerationMs: nanosecondsToMilliseconds(chunk.eval_duration),
+  };
 }
 
 export class OllamaAssistantGateway implements AssistantGateway {
@@ -18,7 +39,7 @@ export class OllamaAssistantGateway implements AssistantGateway {
     private readonly think: boolean,
   ) {}
 
-  public async *streamReply(input: AssistantInput): AsyncIterable<string> {
+  public async *streamReply(input: AssistantInput): AsyncIterable<any> {
     const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: {
@@ -80,7 +101,17 @@ export class OllamaAssistantGateway implements AssistantGateway {
         }
 
         if (chunk.message?.content) {
-          yield chunk.message.content;
+          yield {
+            type: "delta",
+            text: chunk.message.content,
+          }
+
+          if (chunk.done) {
+            yield {
+              type: "usage",
+              usage: usageFromChunk(chunk),
+            };
+          }
         }
       }
 
@@ -99,7 +130,17 @@ export class OllamaAssistantGateway implements AssistantGateway {
       }
 
       if (chunk.message?.content) {
-        yield chunk.message.content;
+        yield {
+            type: "delta",
+            text: chunk.message.content,
+          }
+
+          if (chunk.done) {
+            yield {
+              type: "usage",
+              usage: usageFromChunk(chunk),
+            };
+          }
       }
     }
   }

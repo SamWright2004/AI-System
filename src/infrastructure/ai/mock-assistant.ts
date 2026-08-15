@@ -7,7 +7,7 @@ export class MockAssistantGateway implements AssistantGateway {
   public readonly provider = "mock";
   public readonly model = "foundation-mode";
 
-  public async *streamReply(input: AssistantInput): AsyncIterable<string> {
+  public async *streamReply(input: AssistantInput): AsyncIterable<{ type: "delta"; text: string }> {
     const lastMessage = input.messages.at(-1)?.content ?? "";
     const response =
       "I’m here. The foundation is running locally, and I’ve stored this exchange in your own database. " +
@@ -19,7 +19,10 @@ export class MockAssistantGateway implements AssistantGateway {
         throw new Error("Response cancelled.");
       }
       await wait(18);
-      yield token;
+      yield {
+        type: "delta",
+        text: token,
+      };
     }
   }
 }
