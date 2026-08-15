@@ -1,4 +1,4 @@
-import type { AssistantGateway, AssistantInput, AssistantUsage } from "../../core/chat/types.js";
+import type { AssistantGateway, AssistantInput, AssistantStreamChunk, AssistantUsage } from "../../core/chat/types.js";
 
 interface OllamaChunk {
   message?: {
@@ -19,14 +19,49 @@ function nanosecondsToMilliseconds(value?: number): number | undefined {
 }
 
 function usageFromChunk(chunk: OllamaChunk): AssistantUsage {
-  return {
-    inputTokens: chunk.prompt_eval_count,
-    outputTokens: chunk.eval_count,
-    providerTotalMs: nanosecondsToMilliseconds(chunk.total_duration),
-    providerLoadMs: nanosecondsToMilliseconds(chunk.load_duration),
-    providerPromptEvalMs: nanosecondsToMilliseconds(chunk.prompt_eval_duration),
-    providerGenerationMs: nanosecondsToMilliseconds(chunk.eval_duration),
-  };
+  const usage: AssistantUsage = {};
+
+  if (chunk.prompt_eval_count !== undefined) {
+    usage.inputTokens = chunk.prompt_eval_count;
+  }
+
+  if (chunk.eval_count !== undefined) {
+    usage.outputTokens = chunk.eval_count;
+  }
+
+  const providerTotalMs = nanosecondsToMilliseconds(
+    chunk.total_duration,
+  );
+
+  if (providerTotalMs !== undefined) {
+    usage.providerTotalMs = providerTotalMs;
+  }
+
+  const providerLoadMs = nanosecondsToMilliseconds(
+    chunk.load_duration,
+  );
+
+  if (providerLoadMs !== undefined) {
+    usage.providerLoadMs = providerLoadMs;
+  }
+
+  const providerPromptEvalMs = nanosecondsToMilliseconds(
+    chunk.prompt_eval_duration,
+  );
+
+  if (providerPromptEvalMs !== undefined) {
+    usage.providerPromptEvalMs = providerPromptEvalMs;
+  }
+
+  const providerGenerationMs = nanosecondsToMilliseconds(
+    chunk.eval_duration,
+  );
+
+  if (providerGenerationMs !== undefined) {
+    usage.providerGenerationMs = providerGenerationMs;
+  }
+
+  return usage;
 }
 
 export class OllamaAssistantGateway implements AssistantGateway {
@@ -39,7 +74,7 @@ export class OllamaAssistantGateway implements AssistantGateway {
     private readonly think: boolean,
   ) {}
 
-  public async *streamReply(input: AssistantInput): AsyncIterable<any> {
+  public async *streamReply(input: AssistantInput): AsyncIterable<AssistantStreamChunk> {
     const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: {
@@ -105,14 +140,14 @@ export class OllamaAssistantGateway implements AssistantGateway {
             type: "delta",
             text: chunk.message.content,
           }
+        }
 
-          if (chunk.done) {
+        if (chunk.done) {
             yield {
               type: "usage",
               usage: usageFromChunk(chunk),
             };
           }
-        }
       }
 
       if (done) {
@@ -134,14 +169,14 @@ export class OllamaAssistantGateway implements AssistantGateway {
             type: "delta",
             text: chunk.message.content,
           }
+      }
 
-          if (chunk.done) {
+      if (chunk.done) {
             yield {
               type: "usage",
               usage: usageFromChunk(chunk),
             };
           }
-      }
     }
   }
 }

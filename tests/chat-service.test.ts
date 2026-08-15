@@ -43,6 +43,9 @@ class MemoryStore implements ConversationRepository, ActivityRepository {
     status?: Message["status"];
     provider?: string;
     model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    metadata?: Record<string, unknown>;
   }) {
     const message: Message = {
       id: `22222222-2222-4222-8222-${String(this.messages.length).padStart(12, "0")}`,
@@ -52,6 +55,9 @@ class MemoryStore implements ConversationRepository, ActivityRepository {
       status: input.status ?? "complete",
       provider: input.provider ?? null,
       model: input.model ?? null,
+      inputTokens: input.inputTokens ?? null,
+      outputTokens: input.outputTokens ?? null,
+      metadata: input.metadata ?? {},
       createdAt: now,
     };
     this.messages.push(message);
@@ -70,8 +76,24 @@ class FixedAssistant implements AssistantGateway {
   public readonly model = "fixed";
 
   public async *streamReply(_input: AssistantInput) {
-    yield "Hello ";
-    yield "there.";
+    
+    yield {
+      type: "delta" as const,
+      text: "Hello ",
+    };
+
+    yield {
+      type: "delta" as const,
+      text: "there.",
+    };
+
+    yield {
+      type: "usage" as const,
+      usage: {
+        inputTokens: 12,
+        outputTokens: 4,
+      },
+    };
   }
 }
 

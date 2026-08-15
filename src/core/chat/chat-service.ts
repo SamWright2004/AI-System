@@ -74,23 +74,41 @@ export class ChatService {
 
       const wallMs = Math.round(performance.now() - startedAt);
 
+      const timing: Record<string, number | null> = {
+        wallMs,
+        firstTokenMs,
+      };
+
+      if (usage?.providerTotalMs !== undefined) {
+        timing.providerTotalMs = usage.providerTotalMs;
+      }
+
+      if (usage?.providerLoadMs !== undefined) {
+        timing.providerLoadMs = usage.providerLoadMs;
+      }
+
+      if (usage?.providerPromptEvalMs !== undefined) {
+        timing.providerPromptEvalMs = usage.providerPromptEvalMs;
+      }
+
+      if (usage?.providerGenerationMs !== undefined) {
+        timing.providerGenerationMs = usage.providerGenerationMs;
+      }
+
       const assistantMessage = await this.conversations.addMessage({
         threadId: thread.id,
         role: "assistant",
         content: completeText,
         provider: this.assistant.provider,
         model: this.assistant.model,
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
+        ...(usage?.inputTokens !== undefined
+          ? { inputTokens: usage.inputTokens }
+          : {}),
+        ...(usage?.outputTokens !== undefined
+          ? { outputTokens: usage.outputTokens }
+          : {}),
         metadata: {
-          timing: {
-            wallMs,
-            firstTokenMs,
-            providerTotalMs: usage?.providerTotalMs,
-            providerLoadMs: usage?.providerLoadMs,
-            providerPromptEvalMs: usage?.providerPromptEvalMs,
-            providerGenerationMs: usage?.providerGenerationMs,
-          },
+          timing,
         },
       });
 
