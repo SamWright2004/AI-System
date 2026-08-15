@@ -130,7 +130,9 @@ export class FilePersonalisationSource implements ContextSource, Personalisation
       value = JSON.parse(raw) as unknown;
     } catch (error) {
       const detail = error instanceof Error ? error.message : "invalid JSON";
-      throw new Error(`Could not parse personalisation profile ${this.filePath}: ${detail}`);
+      throw new Error(`Could not parse personalisation profile ${this.filePath}: ${detail}`, {
+        cause: error,
+      });
     }
 
     const parsed = personalisationProfileSchema.safeParse(value);
