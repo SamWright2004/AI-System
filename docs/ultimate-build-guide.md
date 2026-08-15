@@ -495,23 +495,23 @@ Do these in order after the foundation runs:
 - Run the bootstrap and mock conversation.
 - Run `pnpm verify`.
 - Create the private GitHub repository and first commit.
-- Read the three ADRs and change any decision you genuinely reject now.
+- Read the architecture decisions and change any decision you genuinely reject now.
 - Make a database backup manually once, even though it contains only test data.
 
 ### Session 2: real conversation
 
-- Create a low-limit OpenAI project key.
-- switch `.env` to OpenAI;
+- Connect Ollama and use the local Qwen model as the default real conversation path.
+- Keep OpenAI as an optional adapter rather than a prerequisite;
 - test streaming, cancellation, restart persistence and provider failure;
-- add token/cost capture;
+- add provider token and timing capture, with cost capture only for paid providers;
 - write ten conversation evaluation prompts.
 
 ### Session 3: context assembly
 
-- replace the fixed 60-message context with a `ContextBuilder` interface;
-- include the current thread, current project checkpoint and active memories in separate labelled blocks;
-- add token budgets and truncation tests;
-- preserve the raw local history regardless of what is sent.
+- use the implemented `ContextAssembler` and cursor-paged history rather than a fixed message count;
+- keep the current user message, owner profile and recent complete turns inside a token budget;
+- add current project checkpoints and approved memories later as separate `ContextSource` blocks;
+- preserve the raw local history regardless of what is selected for a request.
 
 ### Sessions 4–6: memory proposals
 

@@ -20,9 +20,14 @@ restart.
 
 ## F1 — Reliable conversation
 
-- connect the OpenAI Responses API;
-- add model usage and cost records;
-- implement context budgeting rather than a fixed last-60-message window;
+Status: in progress. Local Ollama conversation, streamed persistence, usage/timing telemetry and budgeted
+context assembly are implemented. Retry/cancellation hardening, titles, export and database integration tests
+remain.
+
+- connect local Ollama and retain the optional OpenAI Responses API boundary;
+- add model usage, timing and context-selection records (cost records remain for paid providers);
+- implement token-budgeted, cursor-paged context instead of a fixed message window;
+- add a trust-labelled `ContextSource` seam and owner-controlled personalisation source;
 - add retry/cancellation behaviour and useful provider errors;
 - generate thread titles without cluttering the home view;
 - export a conversation as Markdown/JSON;

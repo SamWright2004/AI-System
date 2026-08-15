@@ -10,7 +10,10 @@ This is the foundation, not a fake finished assistant. It currently provides:
 - a local Fastify service bound to `127.0.0.1`;
 - PostgreSQL 18 with pgvector for conversations, memory, projects and provenance;
 - a durable background worker using the same database rather than another infrastructure service;
-- provider isolation, with safe mock mode and an optional OpenAI Responses API adapter;
+- provider isolation, with local Ollama, safe mock mode and an optional OpenAI Responses API adapter;
+- token-budgeted, paginated context assembly with labelled, trust-aware extension points;
+- a private hot-reloaded personalisation profile that can name both sides and shape working style;
+- persisted provider, token, timing and context-selection diagnostics on assistant messages;
 - deterministic tool-risk and approval policy;
 - audit, approval, run, outbox and activity records ready for later capabilities;
 - tests, formatting, type checking, production builds and GitHub CI.
@@ -38,7 +41,38 @@ Then open <http://127.0.0.1:5173>.
 The application begins in `mock` mode. It can be fully started, tested and inspected without an API key or
 paid model call.
 
-## Connect OpenAI when the local foundation works
+## Use the local Ollama model
+
+After [installing Ollama](https://ollama.com/download), pull the configured model:
+
+```powershell
+ollama pull qwen3.5:4b
+```
+
+Open `.env`, set `AI_PROVIDER=ollama`, and restart `pnpm dev`. Replies remain on the local provider path and
+the adapter records Ollama's prompt, generation and timing telemetry when it is supplied.
+
+## Make it yours
+
+The bootstrap creates `config/personalisation/profile.local.json` from the committed example. That local file
+is ignored by Git. Edit the owner and assistant display names, tone, response detail, initiative and pinned
+instructions there. The model-side profile is re-read for every reply, so behaviour edits need no restart; a
+page refresh updates the quiet header and resting greeting.
+
+For an existing checkout that predates this feature, create it once in PowerShell:
+
+```powershell
+Copy-Item config/personalisation/profile.example.json config/personalisation/profile.local.json
+```
+
+Keep secrets out of the profile. It is intentionally eligible for model context.
+
+Conversation history is selected by `CONTEXT_INPUT_TOKEN_BUDGET` and read backwards in small database pages.
+The current user message is always preserved, older history is admitted as complete turns, and the resulting
+selection diagnostics are stored with the reply. Future memory and project retrieval implement the same
+`ContextSource` contract rather than modifying the chat pipeline.
+
+## Optional: connect OpenAI
 
 Open `.env` and change:
 
@@ -71,11 +105,12 @@ Do not run `docker compose down -v` casually: `-v` deletes the local database vo
 
 ```text
 config/prompts/          Versioned behaviour, separate from application code
+config/personalisation/  Safe template for the Git-ignored owner profile
 db/migrations/           Immutable database history
 docs/                    Architecture, security and staged build plan
 scripts/                 Repeatable setup and database operations
-src/core/                Domain contracts and deterministic policies
-src/infrastructure/      OpenAI, PostgreSQL and queue adapters
+src/core/                Domain contracts, context assembly and deterministic policies
+src/infrastructure/      Model, context-source, PostgreSQL and queue adapters
 src/server/              Local HTTP and streaming boundary
 src/ui/                  The personal interface
 src/worker/              Durable background work
@@ -92,7 +127,8 @@ lets us replace a provider or split out a worker later without rewriting the sys
 - [Data model](docs/data-model.md)
 - [Security and autonomy](docs/security.md)
 - [Roadmap](docs/roadmap.md)
-- [Architecture decisions](docs/adr/0001-modular-monolith.md)
+- [Architecture decisions](docs/adr/0001-modular-monolith.md), including
+  [budgeted context assembly](docs/adr/0004-budgeted-context-assembly.md)
 
 ## Current boundaries
 

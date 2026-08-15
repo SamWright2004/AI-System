@@ -31,6 +31,14 @@ else
   echo "Keeping the existing .env configuration."
 fi
 
+personalisation_file="config/personalisation/profile.local.json"
+if [[ ! -f "$personalisation_file" ]]; then
+  cp config/personalisation/profile.example.json "$personalisation_file"
+  echo "Created local personalisation profile."
+else
+  echo "Keeping the existing personalisation profile."
+fi
+
 pnpm install
 docker compose up -d
 
@@ -55,3 +63,4 @@ pnpm db:seed
 echo
 echo "Foundation ready. Run: pnpm dev"
 echo "Then open: http://127.0.0.1:5173"
+echo "Personalise it in: $personalisation_file"

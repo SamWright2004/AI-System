@@ -46,6 +46,8 @@ model choosing the wrong person, file or account.
 ## Secrets
 
 - Keep provider and connector credentials in `.env` during local development only.
+- Keep secrets out of `profile.local.json`; it is private and Git-ignored, but its selected contents are sent
+  to the active model provider as owner-trusted context.
 - Never expose API keys to Vite or any variable prefixed for client bundling.
 - Never commit `.env`, database dumps, logs containing prompts or OAuth tokens.
 - Move secrets to the operating-system credential vault before adding real connectors.

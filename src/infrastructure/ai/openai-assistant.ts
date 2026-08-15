@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { AssistantGateway, AssistantInput } from "../../core/chat/types.js";
+import { composeInstructions } from "./compose-instructions.js";
 
 export class OpenAiAssistantGateway implements AssistantGateway {
   public readonly provider = "openai";
@@ -18,7 +19,7 @@ export class OpenAiAssistantGateway implements AssistantGateway {
     const stream = await this.client.responses.create(
       {
         model: this.model,
-        instructions: this.instructions,
+        instructions: composeInstructions(this.instructions, input.context),
         input: input.messages.map((message) => ({
           role: message.role,
           content: message.content,
