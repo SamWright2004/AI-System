@@ -217,7 +217,7 @@ export class ChatService {
       const partial = Boolean(completeText.trim());
 
       if (isAbortError(error, signal)) {
-        const message = partial
+        const assistantMessage = partial
           ? await this.saveAssistantMessage({
               thread,
               content: completeText,
@@ -238,13 +238,13 @@ export class ChatService {
           retryable: !partial,
           userMessageId: userMessage.id,
           partial,
-          ...(message ? { message } : {}),
+          ...(assistantMessage ? { assistantMessage } : {}),
         };
         return;
       }
 
       const problem = classifyGenerationError(error, stage);
-      const message = partial
+      const assistantMessage = partial
         ? await this.saveAssistantMessage({
             thread,
             content: completeText,
@@ -264,7 +264,7 @@ export class ChatService {
         retryable: problem.retryable && !partial,
         userMessageId: userMessage.id,
         partial,
-        ...(message ? { message } : {}),
+        ...(assistantMessage ? { assistantMessage } : {}),
       };
     }
   }
@@ -273,10 +273,10 @@ export class ChatService {
     thread: Thread;
     content: string;
     status: MessageStatus;
-    usage?: AssistantUsage;
-    context?: AssembledContext;
-    contextAssemblyMs?: number;
-    modelStartedAt?: number;
+    usage: AssistantUsage | undefined;
+    context: AssembledContext | undefined;
+    contextAssemblyMs: number | undefined;
+    modelStartedAt: number | undefined;
     firstTokenMs: number | null;
     error?: { code: string; message: string };
   }): Promise<Message> {

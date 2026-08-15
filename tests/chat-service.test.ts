@@ -245,6 +245,10 @@ describe("ChatService", () => {
       type: "cancelled",
       partial: true,
       retryable: false,
+      assistantMessage: {
+        content: "A useful partial answer",
+        status: "cancelled",
+      },
     });
   });
 

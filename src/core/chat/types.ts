@@ -144,5 +144,5 @@ export type ChatStreamEvent =
   | { type: "delta"; text: string }
   | { type: "assistant_message"; message: Message }
   | { type: "done" }
-  | ({ type: "cancelled" } & GenerationProblem & { message?: Message })
-  | ({ type: "error" } & GenerationProblem & { message?: Message });
+  | ({ type: "cancelled" } & GenerationProblem & { assistantMessage?: Message })
+  | ({ type: "error" } & GenerationProblem & { assistantMessage?: Message });
