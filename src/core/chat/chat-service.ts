@@ -139,9 +139,7 @@ export class ChatService {
         const timing: Record<string, number | null> = {
           contextAssemblyMs: contextAssemblyMs ?? null,
           wallMs:
-            modelStartedAt !== undefined
-              ? Math.round(performance.now() - modelStartedAt)
-              : null,
+            modelStartedAt !== undefined ? Math.round(performance.now() - modelStartedAt) : null,
           firstTokenMs,
         };
         addProviderTiming(timing, usage);

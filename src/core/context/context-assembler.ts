@@ -63,13 +63,11 @@ export class ContextAssembler implements ConversationContextAssembler {
           ...(input.signal ? { signal: input.signal } : {}),
         });
 
-        return candidates.map(
-          (candidate, candidateIndex): RankedCandidate => ({
-            candidate,
-            sourceIndex,
-            candidateIndex,
-          }),
-        );
+        return candidates.map((candidate, candidateIndex): RankedCandidate => ({
+          candidate,
+          sourceIndex,
+          candidateIndex,
+        }));
       }),
     );
 

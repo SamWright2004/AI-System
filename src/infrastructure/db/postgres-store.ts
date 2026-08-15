@@ -157,12 +157,7 @@ export class PostgresStore
          )
        ORDER BY created_at DESC, id DESC
        LIMIT $4`,
-      [
-        input.threadId,
-        input.before?.createdAt ?? null,
-        input.before?.id ?? null,
-        input.limit + 1,
-      ],
+      [input.threadId, input.before?.createdAt ?? null, input.before?.id ?? null, input.limit + 1],
     );
 
     const hasMore = result.rows.length > input.limit;

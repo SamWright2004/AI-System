@@ -50,8 +50,7 @@ class PagedHistory implements ContextHistoryRepository {
 
     return {
       messages,
-      nextCursor:
-        hasMore && oldest ? { id: oldest.id, createdAt: oldest.createdAt } : null,
+      nextCursor: hasMore && oldest ? { id: oldest.id, createdAt: oldest.createdAt } : null,
     };
   }
 }

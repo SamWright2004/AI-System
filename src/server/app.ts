@@ -35,13 +35,7 @@ export async function createApp(config: AppConfig) {
     historyPageSize: config.contextHistoryPageSize,
     sources: [personalisation],
   });
-  const chatService = new ChatService(
-    store,
-    store,
-    assistant,
-    contextAssembler,
-    personalisation,
-  );
+  const chatService = new ChatService(store, store, assistant, contextAssembler, personalisation);
 
   registerHealthRoute(app, { pool, assistant, config });
   registerChatRoutes(app, { chatService, activity: store });

@@ -45,10 +45,7 @@ class MemoryStore implements ConversationRepository, ActivityRepository {
   }) {
     const newestFirst = [...this.messages].reverse();
     const start = input.before
-      ? Math.max(
-          0,
-          newestFirst.findIndex((message) => message.id === input.before?.id) + 1,
-        )
+      ? Math.max(0, newestFirst.findIndex((message) => message.id === input.before?.id) + 1)
       : 0;
     const messages = newestFirst.slice(start, start + input.limit);
     const hasMore = newestFirst.length > start + input.limit;
@@ -56,8 +53,7 @@ class MemoryStore implements ConversationRepository, ActivityRepository {
 
     return {
       messages,
-      nextCursor:
-        hasMore && oldest ? { id: oldest.id, createdAt: oldest.createdAt } : null,
+      nextCursor: hasMore && oldest ? { id: oldest.id, createdAt: oldest.createdAt } : null,
     };
   }
 
