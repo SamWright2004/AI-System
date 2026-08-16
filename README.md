@@ -16,6 +16,7 @@ This is the foundation, not a fake finished assistant. It currently provides:
 - durable searchable conversation history while every application launch opens a clean draft;
 - automatic conversation titles, rename/archive controls, message copy and Markdown/JSON export;
 - private hot-reloaded personalisation that can be edited in-app to shape identity and working style;
+- review-first personal memory with visible evidence, confidence, revisions and sensitivity controls;
 - persisted provider, token, timing and context-selection diagnostics on assistant messages;
 - deterministic tool-risk and approval policy;
 - audit, approval, run, outbox and activity records ready for later capabilities;
@@ -75,8 +76,25 @@ Keep secrets out of the profile. It is intentionally eligible for model context.
 
 Conversation history is selected by `CONTEXT_INPUT_TOKEN_BUDGET` and read backwards in small database pages.
 The current user message is always preserved, older history is admitted as complete turns, and the resulting
-selection diagnostics are stored with the reply. Future memory and project retrieval implement the same
-`ContextSource` contract rather than modifying the chat pipeline.
+selection diagnostics are stored with the reply. Approved memory already implements the same `ContextSource`
+contract; future project and document retrieval can follow it without modifying the chat pipeline.
+
+## Review what it remembers
+
+Open Memory from the top-left brain control or press `Ctrl+Shift+M`. With a saved conversation open, choose
+**Review this conversation**. A separate structured model pass suggests only durable claims grounded in your
+own completed messages. Every suggestion shows its source, confidence, classification, sensitivity and a short
+evidence-based reason.
+
+Suggestions remain `proposed` and are excluded from future model context until you approve them. You can edit
+or reject a proposal, revise an approved memory without erasing the old version, forget any memory, or add an
+explicit memory directly. The original conversation remains canonical evidence even when a derived memory is
+forgotten.
+
+The mock provider only recognises an explicit leading “remember …” request. Ollama uses
+`OLLAMA_MEMORY_MODEL` (falling back to the chat model), while OpenAI uses the configured fast model. Automatic
+retrieval applies `MEMORY_CONTEXT_MAX_SENSITIVITY`; the default is conservative for a remote provider and
+allows all levels for local/mock operation.
 
 ## Use it day to day
 
@@ -87,6 +105,7 @@ is created only when you send the first message, so merely opening the applicati
 | -------------------------- | ------------------------------------- |
 | Open/search history        | top-left menu or `Ctrl+K`             |
 | Start a fresh conversation | history button or `Ctrl+N`            |
+| Review personal memory     | top-left brain or `Ctrl+Shift+M`      |
 | Open settings              | top-right settings or `Ctrl+,`        |
 | Stop a response            | stop button or `Escape`               |
 | Add a line break           | `Shift+Enter` in Enter-to-send mode   |
@@ -153,6 +172,7 @@ lets us replace a provider or split out a worker later without rewriting the sys
 - [Data model](docs/data-model.md)
 - [Security and autonomy](docs/security.md)
 - [Roadmap](docs/roadmap.md)
+- [Honest-memory evaluation set](docs/evaluations/memory-v1.md)
 - [Architecture decisions](docs/adr/0001-modular-monolith.md), including
   [budgeted context assembly](docs/adr/0004-budgeted-context-assembly.md)
 

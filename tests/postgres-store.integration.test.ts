@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createPool, type DatabasePool } from "../src/infrastructure/db/pool.js";
+import { PostgresMemoryRepository } from "../src/infrastructure/db/postgres-memory-repository.js";
 import { PostgresStore } from "../src/infrastructure/db/postgres-store.js";
 import { createApp } from "../src/server/app.js";
 import { config } from "../src/shared/config.js";
@@ -16,6 +17,7 @@ describeWithDatabase("PostgresStore integration", () => {
   let app: Awaited<ReturnType<typeof createApp>>;
   let profileDirectory: string;
   const createdThreadIds: string[] = [];
+  const createdMemoryIds: string[] = [];
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("TEST_DATABASE_URL is required.");
@@ -34,7 +36,32 @@ describeWithDatabase("PostgresStore integration", () => {
   });
 
   afterEach(async () => {
+    if (createdMemoryIds.length > 0) {
+      await pool.query("DELETE FROM memory_items WHERE id = ANY($1::uuid[])", [createdMemoryIds]);
+      createdMemoryIds.length = 0;
+    }
     if (createdThreadIds.length === 0) return;
+    await pool.query(
+      `DELETE FROM memory_items AS revision
+       USING memory_items AS source, messages AS source_message
+       WHERE revision.source_type = 'memory_revision'
+         AND revision.source_id = source.id
+         AND source.source_type IN ('message', 'owner_edited_message')
+         AND source.source_id = source_message.id
+         AND source_message.thread_id = ANY($1::uuid[])`,
+      [createdThreadIds],
+    );
+    await pool.query(
+      `DELETE FROM memory_items AS memory
+       USING messages AS source_message
+       WHERE memory.source_type IN ('message', 'owner_edited_message')
+         AND memory.source_id = source_message.id
+         AND source_message.thread_id = ANY($1::uuid[])`,
+      [createdThreadIds],
+    );
+    await pool.query("DELETE FROM activity_items WHERE metadata ->> 'threadId' = ANY($1::text[])", [
+      createdThreadIds,
+    ]);
     await pool.query("DELETE FROM threads WHERE id = ANY($1::uuid[])", [createdThreadIds]);
     createdThreadIds.length = 0;
   });
@@ -165,5 +192,105 @@ describeWithDatabase("PostgresStore integration", () => {
     });
     expect(archived.statusCode).toBe(204);
     await expect(store.findThread(thread.id)).resolves.toBeNull();
+  });
+
+  it("keeps extracted memories proposed until approval and preserves revisions", async () => {
+    const memoryRepository = new PostgresMemoryRepository(pool);
+    const thread = await store.createThread({
+      title: "Memory review integration",
+      kind: "temporary",
+    });
+    createdThreadIds.push(thread.id);
+    await store.addMessage({
+      threadId: thread.id,
+      role: "user",
+      content: "Please remember that I prefer metric units.",
+    });
+
+    const extracted = await app.inject({
+      method: "POST",
+      url: "/api/v1/memories/extract",
+      payload: { threadId: thread.id },
+    });
+    expect(extracted.statusCode).toBe(200);
+    expect(extracted.json()).toMatchObject({ candidates: 1, created: 1 });
+
+    const pending = await app.inject({ method: "GET", url: "/api/v1/memories" });
+    expect(pending.statusCode).toBe(200);
+    const proposed = pending
+      .json()
+      .proposed.find(
+        (memory: { source: { threadId: string | null } }) => memory.source.threadId === thread.id,
+      ) as { id: string; status: string; source: { excerpt: string } } | undefined;
+    expect(proposed).toMatchObject({
+      status: "proposed",
+      source: { excerpt: "Please remember that I prefer metric units." },
+    });
+    if (!proposed) throw new Error("Expected a proposed memory.");
+    createdMemoryIds.push(proposed.id);
+
+    await expect(
+      memoryRepository.searchActiveMemories({
+        query: "metric units",
+        limit: 10,
+        maxSensitivity: 3,
+      }),
+    ).resolves.toEqual([]);
+
+    const approved = await app.inject({
+      method: "POST",
+      url: `/api/v1/memories/${proposed.id}/approve`,
+    });
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json()).toMatchObject({
+      status: "active",
+      validFrom: expect.any(String),
+      lastConfirmedAt: expect.any(String),
+    });
+    const settledHome = await app.inject({ method: "GET", url: "/api/v1/bootstrap" });
+    expect(
+      settledHome
+        .json()
+        .activity.find(
+          (item: { relatedType: string | null }) => item.relatedType === "memory_review",
+        ),
+    ).toBeUndefined();
+    await expect(
+      memoryRepository.searchActiveMemories({
+        query: "metric units",
+        limit: 10,
+        maxSensitivity: 3,
+      }),
+    ).resolves.toMatchObject([{ id: proposed.id, status: "active" }]);
+
+    const revised = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/memories/${proposed.id}`,
+      payload: {
+        kind: "preference",
+        subject: "Preferred units",
+        content: "The owner prefers metric units unless a source requires otherwise.",
+        importance: 65,
+        sensitivity: 0,
+      },
+    });
+    expect(revised.statusCode).toBe(200);
+    expect(revised.json()).toMatchObject({
+      status: "active",
+      supersedesId: proposed.id,
+      source: { type: "memory_revision", id: proposed.id },
+    });
+    createdMemoryIds.push(revised.json().id as string);
+    await expect(memoryRepository.findMemory(proposed.id)).resolves.toMatchObject({
+      status: "superseded",
+      validUntil: expect.any(String),
+    });
+
+    const forgotten = await app.inject({
+      method: "DELETE",
+      url: `/api/v1/memories/${revised.json().id as string}`,
+    });
+    expect(forgotten.statusCode).toBe(204);
+    createdMemoryIds.pop();
   });
 });

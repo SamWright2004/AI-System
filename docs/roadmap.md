@@ -20,9 +20,9 @@ restart.
 
 ## F1 — Reliable conversation
 
-Status: feature-complete and entering representative-conversation validation. Local Ollama and optional OpenAI
-conversation, streamed persistence, usage/timing telemetry, bounded context, lifecycle hardening and the daily
-conversation UI are implemented.
+Status: complete. Local Ollama and optional OpenAI conversation, streamed persistence, usage/timing telemetry,
+bounded context, lifecycle hardening and the daily conversation UI are implemented. The automated acceptance
+harness now runs twenty varied conversations alongside cancellation, retry and bounded-context regressions.
 
 - connect local Ollama and retain the optional OpenAI Responses API boundary;
 - add model usage, timing and context-selection records (cost records remain for paid providers);
@@ -41,6 +41,11 @@ Exit criteria: twenty representative conversations work without duplicated messa
 unbounded context growth.
 
 ## F2 — Honest memory
+
+Status: in progress. The first end-to-end slice now covers structured extraction for mock, Ollama and OpenAI;
+strict source validation; the proposed/active/rejected/superseded lifecycle; review UI; sensitivity-gated
+full-text retrieval; and unit plus PostgreSQL/API trust-boundary tests. Embedding ranking and broader
+model-scored evaluation remain next.
 
 - extract proposed memories with a cheap structured model pass;
 - classify facts, preferences, relationships, decisions, routines and project state;

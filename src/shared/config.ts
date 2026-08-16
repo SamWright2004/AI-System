@@ -10,6 +10,11 @@ const booleanFromString = z.preprocess(
   z.boolean(),
 );
 
+const optionalNonEmptyString = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().min(1).optional(),
+);
+
 const envSchema = z.object({
   APP_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_HOST: z.string().default("127.0.0.1"),
@@ -30,11 +35,16 @@ const envSchema = z.object({
 
   OLLAMA_BASE_URL: z.url().default("http://127.0.0.1:11434"),
   OLLAMA_CHAT_MODEL: z.string().default("qwen3.5:4b"),
+  OLLAMA_MEMORY_MODEL: optionalNonEmptyString,
   OLLAMA_THINK: booleanFromString.default(false),
 
   CONTEXT_INPUT_TOKEN_BUDGET: z.coerce.number().int().min(512).max(1_000_000).default(12_000),
   CONTEXT_HISTORY_PAGE_SIZE: z.coerce.number().int().min(10).max(250).default(50),
   PERSONALISATION_FILE: z.string().min(1).default("config/personalisation/profile.local.json"),
+  MEMORY_CONTEXT_MAX_SENSITIVITY: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.coerce.number().int().min(0).max(3).optional(),
+  ),
 
   APP_SECRET: z.string().min(16).default("development-only-secret-change-me"),
   SERVE_UI: booleanFromString.default(false),
@@ -70,11 +80,14 @@ export const config = Object.freeze({
 
   ollamaBaseUrl: parsed.data.OLLAMA_BASE_URL,
   ollamaChatModel: parsed.data.OLLAMA_CHAT_MODEL,
+  ollamaMemoryModel: parsed.data.OLLAMA_MEMORY_MODEL ?? parsed.data.OLLAMA_CHAT_MODEL,
   ollamaThink: parsed.data.OLLAMA_THINK,
 
   contextInputTokenBudget: parsed.data.CONTEXT_INPUT_TOKEN_BUDGET,
   contextHistoryPageSize: parsed.data.CONTEXT_HISTORY_PAGE_SIZE,
   personalisationFile: parsed.data.PERSONALISATION_FILE,
+  memoryContextMaxSensitivity:
+    parsed.data.MEMORY_CONTEXT_MAX_SENSITIVITY ?? (parsed.data.AI_PROVIDER === "openai" ? 1 : 3),
 
   appSecret: parsed.data.APP_SECRET,
   serveUi: parsed.data.SERVE_UI,

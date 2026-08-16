@@ -48,6 +48,8 @@ export interface ActivityItem {
   body: string;
   status: "unread" | "read" | "resolved";
   requiresReview: boolean;
+  relatedType: string | null;
+  relatedId: string | null;
   createdAt: string;
 }
 

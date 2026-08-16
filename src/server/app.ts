@@ -5,14 +5,19 @@ import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import { ChatService } from "../core/chat/chat-service.js";
 import { ContextAssembler } from "../core/context/context-assembler.js";
+import { MemoryService } from "../core/memory/memory-service.js";
 import { createAssistant } from "../infrastructure/ai/create-assistant.js";
+import { DatabaseMemorySource } from "../infrastructure/context/database-memory-source.js";
 import { FilePersonalisationSource } from "../infrastructure/context/file-personalisation-source.js";
 import { createPool } from "../infrastructure/db/pool.js";
+import { PostgresMemoryRepository } from "../infrastructure/db/postgres-memory-repository.js";
 import { PostgresStore } from "../infrastructure/db/postgres-store.js";
+import { createMemoryExtractor } from "../infrastructure/memory/create-memory-extractor.js";
 import { AppError } from "../shared/errors.js";
 import type { AppConfig } from "../shared/config.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerHealthRoute } from "./routes/health.js";
+import { registerMemoryRoutes } from "./routes/memories.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerThreadRoutes } from "./routes/threads.js";
 
@@ -30,22 +35,37 @@ export async function createApp(config: AppConfig) {
 
   const pool = createPool(config.databaseUrl);
   const store = new PostgresStore(pool);
-  const assistant = await createAssistant(config);
+  const memoryRepository = new PostgresMemoryRepository(pool);
+  const [assistant, memoryExtractor] = await Promise.all([
+    createAssistant(config),
+    createMemoryExtractor(config),
+  ]);
   const personalisation = new FilePersonalisationSource(config.personalisationFile);
+  const memorySource = new DatabaseMemorySource(
+    memoryRepository,
+    config.memoryContextMaxSensitivity,
+  );
   const contextAssembler = new ContextAssembler(store, {
     inputTokenBudget: config.contextInputTokenBudget,
     historyPageSize: config.contextHistoryPageSize,
-    sources: [personalisation],
+    sources: [personalisation, memorySource],
   });
   const chatService = new ChatService(store, store, assistant, contextAssembler, personalisation, {
     provider: assistant.provider,
     model: assistant.model,
     contextInputTokenBudget: config.contextInputTokenBudget,
   });
+  const memoryService = new MemoryService(
+    memoryRepository,
+    store,
+    memoryExtractor,
+    config.memoryContextMaxSensitivity,
+  );
 
   registerHealthRoute(app, { pool, assistant, config });
   registerChatRoutes(app, { chatService, activity: store });
   registerThreadRoutes(app, { chatService });
+  registerMemoryRoutes(app, { memoryService });
   registerSettingsRoutes(app, { personalisation });
 
   app.setErrorHandler((error, _request, reply) => {

@@ -942,6 +942,308 @@ button {
   font-size: 11px;
 }
 
+.panel-note {
+  margin: 3px 2px 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(101, 191, 167, 0.14);
+  border-radius: 9px;
+  color: #83bdad;
+  background: rgba(72, 142, 122, 0.07);
+  font-size: 11px;
+}
+
+.memory-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 18px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(137, 153, 176, 0.22) transparent;
+}
+
+.memory-principle {
+  padding: 13px 14px;
+  border: 1px solid rgba(111, 222, 237, 0.13);
+  border-radius: 12px;
+  background: rgba(59, 126, 138, 0.07);
+}
+
+.memory-principle strong {
+  color: #c7edf0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.memory-principle p,
+.memory-hint,
+.memory-runtime {
+  margin: 6px 0 0;
+  color: #778292;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.memory-tools {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.memory-tools button,
+.memory-card footer button,
+.memory-editor footer button {
+  padding: 8px 10px;
+  border: 1px solid rgba(173, 198, 231, 0.11);
+  border-radius: 9px;
+  color: #aeb9c7;
+  background: rgba(36, 43, 56, 0.55);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.memory-tools button:first-child,
+.memory-card--proposed footer button:first-child,
+.memory-editor footer button[type="submit"] {
+  border-color: rgba(111, 222, 237, 0.19);
+  color: #c7edf0;
+  background: rgba(59, 126, 138, 0.12);
+}
+
+.memory-tools button:hover:not(:disabled),
+.memory-card footer button:hover:not(:disabled),
+.memory-editor footer button:hover:not(:disabled) {
+  border-color: rgba(111, 222, 237, 0.3);
+  color: #e2f7f8;
+}
+
+.memory-tools button:disabled,
+.memory-card footer button:disabled,
+.memory-editor footer button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.memory-runtime {
+  margin: 10px 2px 13px;
+  color: #596474;
+}
+
+.memory-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin: 16px 0 10px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(29, 35, 46, 0.48);
+}
+
+.memory-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 8px;
+  color: #6f7a8b;
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.memory-tabs button.is-active {
+  color: #d8e4ec;
+  background: rgba(57, 68, 85, 0.7);
+}
+
+.memory-tabs span {
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  color: #8fa0b2;
+  background: rgba(145, 168, 198, 0.1);
+  font-size: 9px;
+}
+
+.memory-card,
+.memory-editor {
+  padding: 14px;
+  border: 1px solid rgba(175, 199, 231, 0.08);
+  border-radius: 13px;
+  background: rgba(29, 35, 46, 0.46);
+}
+
+.memory-card + .memory-card,
+.memory-card + .memory-editor,
+.memory-editor + .memory-card {
+  margin-top: 8px;
+}
+
+.memory-card--proposed {
+  border-color: rgba(200, 155, 100, 0.14);
+  box-shadow: inset 2px 0 0 rgba(200, 155, 100, 0.42);
+}
+
+.memory-card--active {
+  box-shadow: inset 2px 0 0 rgba(101, 191, 167, 0.38);
+}
+
+.memory-card > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.memory-card h3 {
+  margin: 5px 0 0;
+  color: #dce3ec;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.memory-kind,
+.memory-status {
+  color: #778292;
+  font-size: 8px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.memory-status {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(145, 168, 198, 0.07);
+}
+
+.memory-content {
+  margin: 11px 0;
+  color: #bdc7d4;
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.memory-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.memory-metrics span {
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: #718092;
+  background: rgba(145, 168, 198, 0.06);
+  font-size: 8px;
+}
+
+.memory-rationale,
+.memory-source {
+  margin: 10px 0 0;
+  color: #7d8998;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.memory-rationale strong {
+  color: #94a0af;
+  font-weight: 600;
+}
+
+.memory-card blockquote {
+  margin: 10px 0 0;
+  padding: 9px 10px;
+  border-left: 2px solid rgba(200, 155, 100, 0.35);
+  border-radius: 0 8px 8px 0;
+  color: #8995a4;
+  background: rgba(16, 20, 28, 0.42);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.memory-card blockquote span {
+  display: block;
+  margin-bottom: 4px;
+  color: #5f6b7b;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.memory-card footer,
+.memory-editor footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.memory-editor {
+  margin-bottom: 12px;
+}
+
+.memory-editor label {
+  display: block;
+  color: #8792a2;
+  font-size: 10px;
+}
+
+.memory-editor label + label {
+  margin-top: 10px;
+}
+
+.memory-editor label > span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.memory-editor input,
+.memory-editor select,
+.memory-editor textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(173, 198, 231, 0.1);
+  border-radius: 9px;
+  outline: 0;
+  color: #dce4ed;
+  background: rgba(22, 27, 37, 0.74);
+}
+
+.memory-editor input:focus,
+.memory-editor select:focus,
+.memory-editor textarea:focus {
+  border-color: rgba(111, 222, 237, 0.3);
+  box-shadow: 0 0 0 3px rgba(92, 202, 225, 0.04);
+}
+
+.memory-editor input[type="range"] {
+  padding: 0;
+  accent-color: #65c9d5;
+}
+
+.memory-editor textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.memory-editor__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.memory-editor__row label + label {
+  margin-top: 0;
+}
+
 .settings-panel {
   padding: 18px 20px 24px;
 }
@@ -1324,8 +1626,23 @@ button {
   }
 
   .settings-grid,
-  .runtime-card {
+  .runtime-card,
+  .memory-editor__row {
     grid-template-columns: 1fr;
+  }
+
+  .memory-editor__row label + label {
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .system-state {
+    display: none;
+  }
+
+  .system-bar {
+    padding: 0 14px;
   }
 }
 

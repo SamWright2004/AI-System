@@ -9,10 +9,18 @@ import type {
   ThreadSummary,
 } from "../core/chat/types.js";
 import type { PersonalisationProfile } from "../core/settings/types.js";
+import type { MemoryDraft, MemoryExtractionSummary, MemoryOverview } from "../core/memory/types.js";
 import {
+  approveMemory,
   archiveThread,
+  createMemory,
+  editMemory,
+  extractMemories,
+  forgetMemory,
   loadHome,
+  loadMemoryOverview,
   loadThread,
+  rejectMemory,
   renameThread,
   retryChat,
   savePersonalisation,
@@ -22,9 +30,10 @@ import { ActivityRail } from "./components/ActivityRail.js";
 import { Brain } from "./components/Brain.js";
 import { Conversation } from "./components/Conversation.js";
 import { HistoryPanel } from "./components/HistoryPanel.js";
+import { MemoryPanel } from "./components/MemoryPanel.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
 
-type UtilityPanel = "history" | "activity" | "settings" | null;
+type UtilityPanel = "history" | "activity" | "memory" | "settings" | null;
 type GenerationState = "idle" | "thinking" | "stopping";
 
 function appendUnique(messages: Message[], message: Message): Message[] {
@@ -54,6 +63,7 @@ function safeFilename(title: string): string {
 
 export function App() {
   const [home, setHome] = useState<HomeState | null>(null);
+  const [memoryOverview, setMemoryOverview] = useState<MemoryOverview | null>(null);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -76,6 +86,11 @@ export function App() {
       .then(setHome)
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "The local service is not ready.");
+      });
+    loadMemoryOverview()
+      .then(setMemoryOverview)
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : "Memory is not ready.");
       });
   }, []);
 
@@ -120,6 +135,10 @@ export function App() {
           requestAnimationFrame(() => inputRef.current?.focus());
         }
       }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        setPanel("memory");
+      }
       if (event.key === "Escape") {
         if (abortRef.current) {
           abortRef.current.abort();
@@ -136,6 +155,10 @@ export function App() {
   async function refreshHome() {
     const next = await loadHome();
     setHome(next);
+  }
+
+  async function refreshMemories() {
+    setMemoryOverview(await loadMemoryOverview());
   }
 
   function startFreshConversation() {
@@ -342,7 +365,44 @@ export function App() {
     setError(null);
   }
 
+  async function scanConversationForMemories(): Promise<MemoryExtractionSummary> {
+    const threadId = activeThreadRef.current?.id;
+    if (!threadId) throw new Error("Open a saved conversation before scanning it.");
+    const result = await extractMemories(threadId);
+    await Promise.all([refreshMemories(), refreshHome()]);
+    return result;
+  }
+
+  async function addMemory(input: MemoryDraft) {
+    await createMemory(input);
+    await refreshMemories();
+  }
+
+  async function updateMemory(id: string, input: MemoryDraft) {
+    await editMemory(id, input);
+    await refreshMemories();
+  }
+
+  async function activateMemory(id: string) {
+    await approveMemory(id);
+    await refreshMemories();
+  }
+
+  async function dismissMemory(id: string) {
+    await rejectMemory(id);
+    await refreshMemories();
+  }
+
+  async function removeMemory(id: string) {
+    await forgetMemory(id);
+    await refreshMemories();
+  }
+
   function reviewActivity(item: ActivityItem) {
+    if (item.relatedType === "memory_review") {
+      setPanel("memory");
+      return;
+    }
     setDraft(`Let’s review “${item.title}”. `);
     setPanel(null);
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -397,6 +457,19 @@ export function App() {
 
       <header className="system-bar">
         <div className="system-bar__side">
+          <button
+            className="system-action"
+            type="button"
+            onClick={() => setPanel("memory")}
+            aria-label="Memory"
+            title="Memory (Ctrl+Shift+M)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 6.5a4 4 0 0 0-1 7.9V16a3 3 0 0 0 5 2.2A3 3 0 0 0 17 16v-1.6a4 4 0 0 0-1-7.9A3 3 0 0 0 12 5a3 3 0 0 0-4 1.5Z" />
+              <path d="M9 10h6M9 13h6" />
+            </svg>
+            {memoryOverview?.counts.proposed ? <i>{memoryOverview.counts.proposed}</i> : null}
+          </button>
           <button
             className="system-action"
             type="button"
@@ -549,14 +622,18 @@ export function App() {
                     ? "Conversations"
                     : panel === "settings"
                       ? "Settings"
-                      : "Background"}
+                      : panel === "memory"
+                        ? "Honest memory"
+                        : "Background"}
                 </span>
                 <h2>
                   {panel === "history"
                     ? "History"
                     : panel === "settings"
                       ? "Make it yours"
-                      : "While you were away"}
+                      : panel === "memory"
+                        ? "What I remember"
+                        : "While you were away"}
                 </h2>
               </div>
               <button type="button" onClick={() => setPanel(null)} aria-label="Close panel">
@@ -577,6 +654,19 @@ export function App() {
 
             {panel === "activity" ? (
               <ActivityRail items={home?.activity ?? []} onReview={reviewActivity} />
+            ) : null}
+
+            {panel === "memory" ? (
+              <MemoryPanel
+                overview={memoryOverview}
+                activeThreadId={activeThread?.id ?? null}
+                onScan={scanConversationForMemories}
+                onCreate={addMemory}
+                onEdit={updateMemory}
+                onApprove={activateMemory}
+                onReject={dismissMemory}
+                onForget={removeMemory}
+              />
             ) : null}
 
             {panel === "settings" && home ? (

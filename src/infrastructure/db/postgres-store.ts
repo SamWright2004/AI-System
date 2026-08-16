@@ -45,6 +45,8 @@ interface ActivityRow {
   body: string;
   status: ActivityItem["status"];
   requires_review: boolean;
+  related_type: string | null;
+  related_id: string | null;
   created_at: Date | string;
 }
 
@@ -94,6 +96,8 @@ function mapActivity(row: ActivityRow): ActivityItem {
     body: row.body,
     status: row.status,
     requiresReview: row.requires_review,
+    relatedType: row.related_type,
+    relatedId: row.related_id,
     createdAt: asIso(row.created_at),
   };
 }
@@ -293,7 +297,7 @@ export class PostgresStore
 
   public async listRecent(limit = 12): Promise<ActivityItem[]> {
     const result = await this.pool.query<ActivityRow>(
-      `SELECT id, kind, title, body, status, requires_review, created_at
+      `SELECT id, kind, title, body, status, requires_review, related_type, related_id, created_at
        FROM activity_items
        WHERE status <> 'resolved'
        ORDER BY created_at DESC

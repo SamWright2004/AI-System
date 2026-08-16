@@ -20,9 +20,9 @@ const activity = [
   },
   {
     key: "memory-deliberate",
-    kind: "decision",
-    title: "I left memory extraction off",
-    body: "That is deliberate. We’ll add memory with sources, confidence and review, so I never quietly turn a joke or guess into a fact about you.",
+    kind: "completed",
+    title: "Honest memory is ready",
+    body: "Conversation review now creates sourced proposals. Nothing enters future replies until you approve it in Memory.",
     review: false,
   },
 ] as const;
