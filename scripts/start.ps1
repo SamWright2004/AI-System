@@ -58,6 +58,15 @@ function Test-Url {
     }
 }
 
+function Test-DockerEngine {
+    # Docker writes its normal "daemon is not running" state to stderr. With the
+    # launcher's terminating-error policy that can abort the script before we get
+    # a chance to start Docker Desktop, so probe it through cmd and use only the
+    # process exit code.
+    cmd.exe /d /c "docker info >nul 2>nul"
+    return ($LASTEXITCODE -eq 0)
+}
+
 function Wait-ForCondition {
     param(
         [scriptblock]$Condition,
@@ -77,13 +86,13 @@ function Wait-ForCondition {
 }
 
 function Start-DockerDesktopIfNeeded {
-    docker info *> $null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-DockerEngine) {
         Write-Host "Docker engine is already running."
         return
     }
 
     Write-Step "Starting Docker Desktop"
+    Write-Host "Docker is installed, but its engine is currently stopped."
 
     $Candidates = @(
         "$Env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
@@ -95,16 +104,15 @@ function Start-DockerDesktopIfNeeded {
         Fail "Docker Desktop could not be found. Install or open Docker Desktop manually once, then try again."
     }
 
+    Write-Host "Launching Docker Desktop..."
     Start-Process -FilePath $DockerDesktop | Out-Null
+    Write-Host "Waiting for the Docker engine to become ready. This can take a little while after Windows starts."
 
     Wait-ForCondition `
-        -Condition {
-            docker info *> $null
-            return ($LASTEXITCODE -eq 0)
-        } `
-        -Attempts 60 `
+        -Condition { Test-DockerEngine } `
+        -Attempts 90 `
         -DelaySeconds 2 `
-        -FailureMessage "Docker Desktop started, but the Docker engine did not become ready. Open Docker Desktop and check for an error."
+        -FailureMessage "Docker Desktop opened, but the Docker engine did not become ready. Open Docker Desktop and check whether it reports a startup error."
 
     Write-Host "Docker engine is ready."
 }
@@ -118,7 +126,7 @@ function Ensure-Postgres {
 
     Wait-ForCondition `
         -Condition {
-            docker compose exec -T postgres pg_isready -U personal_ai -d personal_ai *> $null
+            cmd.exe /d /c "docker compose exec -T postgres pg_isready -U personal_ai -d personal_ai >nul 2>nul"
             return ($LASTEXITCODE -eq 0)
         } `
         -Attempts 30 `
