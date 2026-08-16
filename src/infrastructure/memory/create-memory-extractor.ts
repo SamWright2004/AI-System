@@ -6,9 +6,7 @@ import { MockMemoryExtractor } from "./mock-memory-extractor.js";
 import { OllamaMemoryExtractor } from "./ollama-memory-extractor.js";
 import { OpenAiMemoryExtractor } from "./openai-memory-extractor.js";
 
-export async function createMemoryExtractor(
-  config: AppConfig,
-): Promise<MemoryExtractionGateway> {
+export async function createMemoryExtractor(config: AppConfig): Promise<MemoryExtractionGateway> {
   if (config.aiProvider === "mock") return new MockMemoryExtractor();
 
   const instructions = await readFile(
@@ -17,11 +15,7 @@ export async function createMemoryExtractor(
   );
 
   if (config.aiProvider === "ollama") {
-    return new OllamaMemoryExtractor(
-      config.ollamaBaseUrl,
-      config.ollamaMemoryModel,
-      instructions,
-    );
+    return new OllamaMemoryExtractor(config.ollamaBaseUrl, config.ollamaMemoryModel, instructions);
   }
 
   if (!config.openAiApiKey) {

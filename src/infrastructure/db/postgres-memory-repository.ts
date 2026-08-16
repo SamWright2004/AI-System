@@ -315,14 +315,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
         "WHERE id = $1 AND status = 'proposed'",
         "RETURNING id",
       ].join("\n"),
-      [
-        id,
-        input.kind,
-        input.subject,
-        input.content,
-        input.importance,
-        input.sensitivity,
-      ],
+      [id, input.kind, input.subject, input.content, input.importance, input.sensitivity],
     );
     return result.rows[0] ? this.findMemory(result.rows[0].id) : null;
   }

@@ -1,10 +1,7 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { ProviderError } from "../../core/chat/generation-errors.js";
-import type {
-  MemoryExtractionGateway,
-  MemoryExtractionInput,
-} from "../../core/memory/types.js";
+import type { MemoryExtractionGateway, MemoryExtractionInput } from "../../core/memory/types.js";
 import { memoryExtractionSchema } from "./memory-extraction-schema.js";
 
 export class OpenAiMemoryExtractor implements MemoryExtractionGateway {

@@ -37,9 +37,7 @@ describeWithDatabase("PostgresStore integration", () => {
 
   afterEach(async () => {
     if (createdMemoryIds.length > 0) {
-      await pool.query("DELETE FROM memory_items WHERE id = ANY($1::uuid[])", [
-        createdMemoryIds,
-      ]);
+      await pool.query("DELETE FROM memory_items WHERE id = ANY($1::uuid[])", [createdMemoryIds]);
       createdMemoryIds.length = 0;
     }
     if (createdThreadIds.length === 0) return;
@@ -219,9 +217,11 @@ describeWithDatabase("PostgresStore integration", () => {
 
     const pending = await app.inject({ method: "GET", url: "/api/v1/memories" });
     expect(pending.statusCode).toBe(200);
-    const proposed = pending.json().proposed.find(
-      (memory: { source: { threadId: string | null } }) => memory.source.threadId === thread.id,
-    ) as { id: string; status: string; source: { excerpt: string } } | undefined;
+    const proposed = pending
+      .json()
+      .proposed.find(
+        (memory: { source: { threadId: string | null } }) => memory.source.threadId === thread.id,
+      ) as { id: string; status: string; source: { excerpt: string } } | undefined;
     expect(proposed).toMatchObject({
       status: "proposed",
       source: { excerpt: "Please remember that I prefer metric units." },

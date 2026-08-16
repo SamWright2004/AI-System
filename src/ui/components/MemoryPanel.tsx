@@ -81,9 +81,7 @@ function MemoryEditor({
           <span>Kind</span>
           <select
             value={form.kind}
-            onChange={(event) =>
-              setForm({ ...form, kind: event.target.value as MemoryKind })
-            }
+            onChange={(event) => setForm({ ...form, kind: event.target.value as MemoryKind })}
           >
             {memoryKinds.map((kind) => (
               <option key={kind} value={kind}>
@@ -96,9 +94,7 @@ function MemoryEditor({
           <span>Sensitivity</span>
           <select
             value={form.sensitivity}
-            onChange={(event) =>
-              setForm({ ...form, sensitivity: Number(event.target.value) })
-            }
+            onChange={(event) => setForm({ ...form, sensitivity: Number(event.target.value) })}
           >
             {sensitivityLabels.map((label, value) => (
               <option key={label} value={value}>
@@ -316,9 +312,7 @@ export function MemoryPanel({
     <section className="memory-panel" aria-label="Honest memory">
       <div className="memory-principle">
         <strong>Nothing is remembered silently.</strong>
-        <p>
-          Extraction creates proposals. Only memories you approve can enter future replies.
-        </p>
+        <p>Extraction creates proposals. Only memories you approve can enter future replies.</p>
       </div>
 
       <div className="memory-tools">
@@ -333,10 +327,9 @@ export function MemoryPanel({
         <p className="memory-hint">Open a saved conversation to review it for possible memories.</p>
       ) : null}
       <p className="memory-runtime">
-        Extractor: {overview.extractor.provider} / {overview.extractor.model}. Automatic context uses
-        {" "}
-        {(sensitivityLabels[overview.contextPolicy.maxSensitivity] ?? "unknown").toLowerCase()} or
-        lower sensitivity (level {overview.contextPolicy.maxSensitivity}).
+        Extractor: {overview.extractor.provider} / {overview.extractor.model}. Automatic context
+        uses {(sensitivityLabels[overview.contextPolicy.maxSensitivity] ?? "unknown").toLowerCase()}{" "}
+        or lower sensitivity (level {overview.contextPolicy.maxSensitivity}).
       </p>
 
       {notice ? (

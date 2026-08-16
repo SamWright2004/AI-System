@@ -52,13 +52,13 @@ message, admits owner/application context blocks by priority, and then walks can
 cursor pagination. Older conversation is selected as complete user/assistant turns until the configured token
 budget is full. The original history is never deleted or rewritten when a request is compacted.
 
-| Extension point            | Present implementation                  | Intended additions                         |
-| -------------------------- | --------------------------------------- | ------------------------------------------ |
-| `ContextHistoryRepository` | cursor-paged PostgreSQL messages        | alternate local stores                     |
-| `ContextSource`            | personalisation and approved memory     | active project and document retrieval      |
-| `TokenEstimator`           | conservative UTF-8 heuristic            | provider-specific tokenisers               |
-| `AssistantContextBlock`    | labelled owner-trusted profile          | application and external evidence blocks   |
-| context diagnostics        | budget, pages, turns and omitted blocks | retrieval quality and evaluation signals   |
+| Extension point            | Present implementation                  | Intended additions                       |
+| -------------------------- | --------------------------------------- | ---------------------------------------- |
+| `ContextHistoryRepository` | cursor-paged PostgreSQL messages        | alternate local stores                   |
+| `ContextSource`            | personalisation and approved memory     | active project and document retrieval    |
+| `TokenEstimator`           | conservative UTF-8 heuristic            | provider-specific tokenisers             |
+| `AssistantContextBlock`    | labelled owner-trusted profile          | application and external evidence blocks |
+| context diagnostics        | budget, pages, turns and omitted blocks | retrieval quality and evaluation signals |
 
 Trust travels with every supplemental block. Model adapters explicitly label owner settings, canonical
 application state and untrusted external evidence when composing their system instructions. This label does

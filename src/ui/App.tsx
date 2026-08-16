@@ -9,11 +9,7 @@ import type {
   ThreadSummary,
 } from "../core/chat/types.js";
 import type { PersonalisationProfile } from "../core/settings/types.js";
-import type {
-  MemoryDraft,
-  MemoryExtractionSummary,
-  MemoryOverview,
-} from "../core/memory/types.js";
+import type { MemoryDraft, MemoryExtractionSummary, MemoryOverview } from "../core/memory/types.js";
 import {
   approveMemory,
   archiveThread,
@@ -139,11 +135,7 @@ export function App() {
           requestAnimationFrame(() => inputRef.current?.focus());
         }
       }
-      if (
-        (event.ctrlKey || event.metaKey) &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "m"
-      ) {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "m") {
         event.preventDefault();
         setPanel("memory");
       }

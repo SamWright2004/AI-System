@@ -69,9 +69,7 @@ export function registerMemoryRoutes(
   app.post("/api/v1/memories/:id/approve", async (request, reply) => {
     const parsed = memoryIdSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send({ error: "INVALID_MEMORY_ID", message: "Invalid memory id." });
+      return reply.status(400).send({ error: "INVALID_MEMORY_ID", message: "Invalid memory id." });
     }
     return dependencies.memoryService.approve(parsed.data.id);
   });
@@ -79,9 +77,7 @@ export function registerMemoryRoutes(
   app.post("/api/v1/memories/:id/reject", async (request, reply) => {
     const parsed = memoryIdSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send({ error: "INVALID_MEMORY_ID", message: "Invalid memory id." });
+      return reply.status(400).send({ error: "INVALID_MEMORY_ID", message: "Invalid memory id." });
     }
     return dependencies.memoryService.reject(parsed.data.id);
   });
@@ -89,9 +85,7 @@ export function registerMemoryRoutes(
   app.delete("/api/v1/memories/:id", async (request, reply) => {
     const parsed = memoryIdSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send({ error: "INVALID_MEMORY_ID", message: "Invalid memory id." });
+      return reply.status(400).send({ error: "INVALID_MEMORY_ID", message: "Invalid memory id." });
     }
     await dependencies.memoryService.forget(parsed.data.id);
     return reply.status(204).send();

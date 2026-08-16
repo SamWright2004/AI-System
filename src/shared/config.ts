@@ -87,8 +87,7 @@ export const config = Object.freeze({
   contextHistoryPageSize: parsed.data.CONTEXT_HISTORY_PAGE_SIZE,
   personalisationFile: parsed.data.PERSONALISATION_FILE,
   memoryContextMaxSensitivity:
-    parsed.data.MEMORY_CONTEXT_MAX_SENSITIVITY ??
-    (parsed.data.AI_PROVIDER === "openai" ? 1 : 3),
+    parsed.data.MEMORY_CONTEXT_MAX_SENSITIVITY ?? (parsed.data.AI_PROVIDER === "openai" ? 1 : 3),
 
   appSecret: parsed.data.APP_SECRET,
   serveUi: parsed.data.SERVE_UI,

@@ -96,7 +96,10 @@ class InMemoryMemoryRepository implements MemoryRepository {
     statuses: ReadonlyArray<MemoryStatus>,
     limit = 100,
   ): Promise<MemoryItem[]> {
-    return this.items.filter((item) => statuses.includes(item.status)).slice(-limit).reverse();
+    return this.items
+      .filter((item) => statuses.includes(item.status))
+      .slice(-limit)
+      .reverse();
   }
 
   public async countMemories(): Promise<Record<MemoryStatus, number>> {
@@ -159,10 +162,7 @@ class InMemoryMemoryRepository implements MemoryRepository {
     return item;
   }
 
-  public async updateProposedMemory(
-    id: string,
-    input: MemoryDraft,
-  ): Promise<MemoryItem | null> {
+  public async updateProposedMemory(id: string, input: MemoryDraft): Promise<MemoryItem | null> {
     const item = this.items.find((candidate) => candidate.id === id);
     if (!item || item.status !== "proposed") return null;
     Object.assign(item, input, {
@@ -173,10 +173,7 @@ class InMemoryMemoryRepository implements MemoryRepository {
     return item;
   }
 
-  public async supersedeActiveMemory(
-    id: string,
-    input: MemoryDraft,
-  ): Promise<MemoryItem | null> {
+  public async supersedeActiveMemory(id: string, input: MemoryDraft): Promise<MemoryItem | null> {
     const item = this.items.find((candidate) => candidate.id === id);
     if (!item || item.status !== "active") return null;
     item.status = "superseded";

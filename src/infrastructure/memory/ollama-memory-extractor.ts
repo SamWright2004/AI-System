@@ -1,8 +1,5 @@
 import { isAbortError, ProviderError } from "../../core/chat/generation-errors.js";
-import type {
-  MemoryExtractionGateway,
-  MemoryExtractionInput,
-} from "../../core/memory/types.js";
+import type { MemoryExtractionGateway, MemoryExtractionInput } from "../../core/memory/types.js";
 import {
   memoryExtractionJsonSchema,
   parseMemoryExtractionJson,
@@ -69,11 +66,7 @@ export class OllamaMemoryExtractor implements MemoryExtractionGateway {
 
     const body = (await response.json()) as OllamaMemoryResponse;
     if (body.error) {
-      throw new ProviderError(
-        "PROVIDER_REQUEST_FAILED",
-        "Ollama reported: " + body.error,
-        true,
-      );
+      throw new ProviderError("PROVIDER_REQUEST_FAILED", "Ollama reported: " + body.error, true);
     }
 
     const content = body.message?.content;

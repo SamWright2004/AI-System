@@ -105,7 +105,7 @@ is created only when you send the first message, so merely opening the applicati
 | -------------------------- | ------------------------------------- |
 | Open/search history        | top-left menu or `Ctrl+K`             |
 | Start a fresh conversation | history button or `Ctrl+N`            |
-| Review personal memory     | top-left brain or `Ctrl+Shift+M`       |
+| Review personal memory     | top-left brain or `Ctrl+Shift+M`      |
 | Open settings              | top-right settings or `Ctrl+,`        |
 | Stop a response            | stop button or `Escape`               |
 | Add a line break           | `Shift+Enter` in Enter-to-send mode   |
