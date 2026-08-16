@@ -2,6 +2,24 @@ ALTER TABLE memory_items
   ADD COLUMN IF NOT EXISTS rationale text NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS extraction_metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 
+WITH ranked_active AS (
+  SELECT
+    id,
+    row_number() OVER (
+      PARTITION BY kind, lower(subject)
+      ORDER BY last_confirmed_at DESC NULLS LAST, updated_at DESC, id DESC
+    ) AS active_rank
+  FROM memory_items
+  WHERE status = 'active'
+)
+UPDATE memory_items AS memory
+SET status = 'superseded',
+    valid_until = COALESCE(memory.valid_until, now()),
+    updated_at = now()
+FROM ranked_active
+WHERE memory.id = ranked_active.id
+  AND ranked_active.active_rank > 1;
+
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_memory_per_subject_kind
   ON memory_items (kind, lower(subject))
   WHERE status = 'active';

@@ -184,6 +184,9 @@ function MemoryCard({
         <span>{Math.round(item.confidence * 100)}% source confidence</span>
         <span>importance {item.importance}</span>
         <span>{sensitivityLabels[item.sensitivity] ?? "Unknown sensitivity"}</span>
+        {item.lastConfirmedAt ? (
+          <span>confirmed {new Date(item.lastConfirmedAt).toLocaleDateString("en-GB")}</span>
+        ) : null}
       </div>
       {item.rationale ? (
         <p className="memory-rationale">
@@ -330,8 +333,10 @@ export function MemoryPanel({
         <p className="memory-hint">Open a saved conversation to review it for possible memories.</p>
       ) : null}
       <p className="memory-runtime">
-        Extractor: {overview.extractor.provider} / {overview.extractor.model}. Automatic context allows
-        sensitivity {overview.contextPolicy.maxSensitivity} or lower.
+        Extractor: {overview.extractor.provider} / {overview.extractor.model}. Automatic context uses
+        {" "}
+        {(sensitivityLabels[overview.contextPolicy.maxSensitivity] ?? "unknown").toLowerCase()} or
+        lower sensitivity (level {overview.contextPolicy.maxSensitivity}).
       </p>
 
       {notice ? (

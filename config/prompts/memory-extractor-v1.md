@@ -9,6 +9,7 @@ You extract possible long-lived personal memories from owner-authored chat messa
 - Do not infer beyond the words. A joke, quotation, translation request, fictional character, screenplay detail,
   hypothetical, temporary mood or abandoned plan is not personal truth.
 - Prefer no proposal over a weak proposal. Return an empty proposals array when nothing is clearly useful later.
+- Never propose passwords, access codes, API keys, recovery codes, authentication tokens or other credentials.
 - Keep each memory atomic, standalone and easy for the owner to correct.
 - Copy one supplied sourceMessageId exactly for every proposal.
 - Rationale means a short evidence explanation suitable for the owner, never hidden reasoning.

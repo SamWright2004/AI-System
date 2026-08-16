@@ -242,7 +242,11 @@ describeWithDatabase("PostgresStore integration", () => {
       url: `/api/v1/memories/${proposed.id}/approve`,
     });
     expect(approved.statusCode).toBe(200);
-    expect(approved.json()).toMatchObject({ status: "active", lastConfirmedAt: expect.any(String) });
+    expect(approved.json()).toMatchObject({
+      status: "active",
+      validFrom: expect.any(String),
+      lastConfirmedAt: expect.any(String),
+    });
     const settledHome = await app.inject({ method: "GET", url: "/api/v1/bootstrap" });
     expect(
       settledHome
@@ -279,6 +283,7 @@ describeWithDatabase("PostgresStore integration", () => {
     createdMemoryIds.push(revised.json().id as string);
     await expect(memoryRepository.findMemory(proposed.id)).resolves.toMatchObject({
       status: "superseded",
+      validUntil: expect.any(String),
     });
 
     const forgotten = await app.inject({

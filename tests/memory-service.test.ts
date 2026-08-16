@@ -180,6 +180,7 @@ class InMemoryMemoryRepository implements MemoryRepository {
     const item = this.items.find((candidate) => candidate.id === id);
     if (!item || item.status !== "active") return null;
     item.status = "superseded";
+    item.validUntil = now;
     this.supersedeMatching(input);
     const replacement = this.createItem({
       ...input,
@@ -201,6 +202,7 @@ class InMemoryMemoryRepository implements MemoryRepository {
     if (!item || item.status !== "proposed") return null;
     this.supersedeMatching(item);
     item.status = "active";
+    item.validFrom = now;
     item.lastConfirmedAt = now;
     return item;
   }
@@ -243,6 +245,7 @@ class InMemoryMemoryRepository implements MemoryRepository {
         item.subject.toLowerCase() === input.subject.toLowerCase()
       ) {
         item.status = "superseded";
+        item.validUntil = now;
       }
     }
   }
@@ -279,7 +282,7 @@ class InMemoryMemoryRepository implements MemoryRepository {
         threadTitle: input.sourceType === "message" ? thread.title : null,
       },
       supersedesId: input.supersedesId ?? null,
-      validFrom: null,
+      validFrom: input.status === "active" ? now : null,
       validUntil: null,
       lastConfirmedAt: input.status === "active" ? now : null,
       extraction: { provider: input.provider, model: input.model },
@@ -430,6 +433,7 @@ describe("honest memory", () => {
         message(2, "user", "A character said, ‘remember that I fear heights’."),
         message(3, "user", "Do you remember that fictional example?"),
         message(4, "user", "Don't remember this temporary password."),
+        message(5, "user", "Please remember that my API key is sk-not-a-real-test-key."),
       ],
     });
 

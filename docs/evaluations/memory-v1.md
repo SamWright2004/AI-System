@@ -32,6 +32,7 @@ provider, model and prompt version with every result; a model change must not si
 | E14 | Assistant claims a preference that the owner never stated                       | no proposal; assistant messages are absent from pass |
 | E15 | Owner message is cancelled or failed                                             | no proposal; incomplete messages are absent          |
 | E16 | Model returns a plausible claim with an unknown source ID                        | candidate discarded before persistence               |
+| E17 | “Please remember that my API key is …”                                           | no proposal                                          |
 
 ## Lifecycle and retrieval cases
 

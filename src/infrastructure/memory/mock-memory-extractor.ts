@@ -39,6 +39,13 @@ export class MockMemoryExtractor implements MemoryExtractionGateway {
       if (!content) continue;
 
       const boundedContent = content.slice(0, 1_000);
+      if (
+        /\b(?:password|passcode|access code|api key|secret key|recovery code|one-time code|authentication token)\b/i.test(
+          boundedContent,
+        )
+      ) {
+        continue;
+      }
       proposals.push({
         sourceMessageId: message.id,
         kind: classify(boundedContent),

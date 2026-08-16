@@ -32,7 +32,8 @@ collapsed into one vague blob.
 9. Archiving a conversation sets `threads.archived_at`. It removes the thread from the active history UI without
    deleting its messages.
 10. Only `active` memory is eligible for model context. At most one active row may exist for a case-insensitive
-    `(kind, subject)` pair; revisions supersede rather than overwrite the prior row.
+    `(kind, subject)` pair; revisions supersede rather than overwrite the prior row and close its validity
+    window.
 11. Extracted memory retains provider/model metadata, an exact source message identifier and a short displayed
     rationale. The source message must be a completed owner message in the conversation being reviewed.
 

@@ -254,7 +254,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
       const previous = await client.query<{ id: string }>(
         [
           "UPDATE memory_items",
-          "SET status = 'superseded', updated_at = now()",
+          "SET status = 'superseded', valid_until = COALESCE(valid_until, now()), updated_at = now()",
           "WHERE status = 'active' AND kind = $1 AND lower(subject) = lower($2)",
           "RETURNING id",
         ].join("\n"),
@@ -264,9 +264,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
         [
           "INSERT INTO memory_items (",
           "  kind, subject, content, status, confidence, importance, sensitivity,",
-          "  source_type, supersedes_id, last_confirmed_at, rationale",
+          "  source_type, supersedes_id, valid_from, last_confirmed_at, rationale",
           ")",
-          "VALUES ($1, $2, $3, 'active', 1, $4, $5, 'owner', $6, now(), $7)",
+          "VALUES ($1, $2, $3, 'active', 1, $4, $5, 'owner', $6, now(), now(), $7)",
           "RETURNING id",
         ].join("\n"),
         [
@@ -344,7 +344,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
       await client.query(
         [
           "UPDATE memory_items",
-          "SET status = 'superseded', updated_at = now()",
+          "SET status = 'superseded', valid_until = COALESCE(valid_until, now()), updated_at = now()",
           "WHERE status = 'active'",
           "  AND (id = $1 OR (kind = $2 AND lower(subject) = lower($3)))",
         ].join("\n"),
@@ -354,9 +354,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
         [
           "INSERT INTO memory_items (",
           "  kind, subject, content, status, confidence, importance, sensitivity,",
-          "  source_type, source_id, supersedes_id, last_confirmed_at, rationale",
+          "  source_type, source_id, supersedes_id, valid_from, last_confirmed_at, rationale",
           ")",
-          "VALUES ($1, $2, $3, 'active', 1, $4, $5, 'memory_revision', $6, $6, now(), $7)",
+          "VALUES ($1, $2, $3, 'active', 1, $4, $5, 'memory_revision', $6, $6, now(), now(), $7)",
           "RETURNING id",
         ].join("\n"),
         [
@@ -401,7 +401,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
       const previous = await client.query<{ id: string }>(
         [
           "UPDATE memory_items",
-          "SET status = 'superseded', updated_at = now()",
+          "SET status = 'superseded', valid_until = COALESCE(valid_until, now()), updated_at = now()",
           "WHERE status = 'active'",
           "  AND kind = $1::memory_kind",
           "  AND lower(subject) = lower($2)",
@@ -414,6 +414,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
           "UPDATE memory_items",
           "SET status = 'active',",
           "    supersedes_id = COALESCE($2, supersedes_id),",
+          "    valid_from = COALESCE(valid_from, now()),",
           "    last_confirmed_at = now(),",
           "    updated_at = now()",
           "WHERE id = $1",
@@ -427,7 +428,7 @@ export class PostgresMemoryRepository implements MemoryRepository {
     } finally {
       client.release();
     }
-    await this.resolveReviewIfSettled(await this.findSourceThreadId(id));
+    await this.resolveReviewIfSettled(await this.findSourceThreadId(id)).catch(() => undefined);
     return this.findMemory(id);
   }
 
@@ -443,14 +444,18 @@ export class PostgresMemoryRepository implements MemoryRepository {
     );
     const updatedId = result.rows[0]?.id;
     if (!updatedId) return null;
-    await this.resolveReviewIfSettled(await this.findSourceThreadId(updatedId));
+    await this.resolveReviewIfSettled(await this.findSourceThreadId(updatedId)).catch(
+      () => undefined,
+    );
     return this.findMemory(updatedId);
   }
 
   public async forgetMemory(id: string): Promise<boolean> {
     const sourceThreadId = await this.findSourceThreadId(id);
     const result = await this.pool.query("DELETE FROM memory_items WHERE id = $1", [id]);
-    if (result.rowCount === 1) await this.resolveReviewIfSettled(sourceThreadId);
+    if (result.rowCount === 1) {
+      await this.resolveReviewIfSettled(sourceThreadId).catch(() => undefined);
+    }
     return result.rowCount === 1;
   }
 
