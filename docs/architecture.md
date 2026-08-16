@@ -55,7 +55,7 @@ budget is full. The original history is never deleted or rewritten when a reques
 | Extension point            | Present implementation                  | Intended additions                         |
 | -------------------------- | --------------------------------------- | ------------------------------------------ |
 | `ContextHistoryRepository` | cursor-paged PostgreSQL messages        | alternate local stores                     |
-| `ContextSource`            | Git-ignored personalisation JSON        | approved memory, active project, documents |
+| `ContextSource`            | personalisation and approved memory     | active project and document retrieval      |
 | `TokenEstimator`           | conservative UTF-8 heuristic            | provider-specific tokenisers               |
 | `AssistantContextBlock`    | labelled owner-trusted profile          | application and external evidence blocks   |
 | context diagnostics        | budget, pages, turns and omitted blocks | retrieval quality and evaluation signals   |
@@ -95,6 +95,17 @@ Raw messages are evidence. A memory is a reviewed, typed claim derived from evid
 
 This avoids the common failure where an assistant turns a joke, a screenplay character or a temporary plan
 into a permanent fact about its owner.
+
+The first memory slice implements that distinction as an explicit state machine. A provider-specific extractor
+returns a schema-validated proposal referencing an exact completed owner message. The application core rejects
+unknown source IDs before the PostgreSQL adapter checks the message, role, thread and completion state again.
+Neither the extractor nor the model can write an active memory.
+
+`proposed` memories appear in the review drawer but `DatabaseMemorySource` queries only `active` rows. Approval
+sets a confirmation timestamp; an edit to an active memory creates a new active row and moves the prior row to
+`superseded`. Retrieval applies a deterministic status and sensitivity filter before full-text ranking. This is
+deliberately compatible with the existing `ContextSource` budget and trust labels, and leaves embeddings as a
+replaceable ranking addition rather than canonical truth.
 
 ## Background work
 

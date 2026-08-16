@@ -1,5 +1,11 @@
 import type { ChatStreamEvent, HomeState, Thread, ThreadState } from "../core/chat/types.js";
 import type { PersonalisationProfile } from "../core/settings/types.js";
+import type {
+  MemoryDraft,
+  MemoryExtractionSummary,
+  MemoryItem,
+  MemoryOverview,
+} from "../core/memory/types.js";
 
 interface ApiErrorBody {
   message?: string;
@@ -105,4 +111,45 @@ export async function savePersonalisation(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(profile),
   });
+}
+
+export async function loadMemoryOverview(): Promise<MemoryOverview> {
+  return apiJson<MemoryOverview>("/api/v1/memories");
+}
+
+export async function extractMemories(threadId: string): Promise<MemoryExtractionSummary> {
+  return apiJson<MemoryExtractionSummary>("/api/v1/memories/extract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ threadId }),
+  });
+}
+
+export async function createMemory(input: MemoryDraft): Promise<MemoryItem> {
+  return apiJson<MemoryItem>("/api/v1/memories", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function editMemory(id: string, input: MemoryDraft): Promise<MemoryItem> {
+  return apiJson<MemoryItem>("/api/v1/memories/" + id, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function approveMemory(id: string): Promise<MemoryItem> {
+  return apiJson<MemoryItem>("/api/v1/memories/" + id + "/approve", { method: "POST" });
+}
+
+export async function rejectMemory(id: string): Promise<MemoryItem> {
+  return apiJson<MemoryItem>("/api/v1/memories/" + id + "/reject", { method: "POST" });
+}
+
+export async function forgetMemory(id: string): Promise<void> {
+  const response = await fetch("/api/v1/memories/" + id, { method: "DELETE" });
+  if (!response.ok) throw new Error("The memory could not be forgotten.");
 }

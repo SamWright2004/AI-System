@@ -303,6 +303,55 @@ describe("ChatService", () => {
     expect(home).not.toHaveProperty("thread");
     expect(home).not.toHaveProperty("messages");
   });
+
+  it("keeps twenty representative conversations isolated and duplicate-free", async () => {
+    const prompts = [
+      "Give me a concise status update.",
+      "Plan tomorrow's three priorities.",
+      "Explain this in plain English.",
+      "Draft a friendly reply with a clear next step.",
+      "Compare option A with option B.",
+      "Summarise:\n- first point\n- second point",
+      "Use UK spelling and metric units.",
+      "What does `status: complete` mean?",
+      "Keep the quoted phrase “not yet decided” intact.",
+      "Help me think through a reversible decision.",
+      "List the assumptions you are making.",
+      "Turn this idea into a small checklist.",
+      "Explain the trade-off without jargon.",
+      "What should I verify before continuing?",
+      "Give me one recommendation and one caveat.",
+      "Rewrite this with a warmer tone.",
+      "Sketch a safe rollback plan.",
+      "Find the likely edge case in this flow.",
+      "Summarise the decision for future reference.",
+      "End with the single best next action.",
+    ];
+    const store = new MemoryStore();
+    const service = createService(store, new FixedAssistant());
+
+    for (const prompt of prompts) {
+      const events = [];
+      for await (const event of service.reply({ content: prompt })) {
+        events.push(event);
+      }
+      expect(events.filter((event) => event.type === "user_message")).toHaveLength(1);
+      expect(events.filter((event) => event.type === "assistant_message")).toHaveLength(1);
+    }
+
+    expect(store.threads).toHaveLength(20);
+    expect(store.messages).toHaveLength(40);
+    for (const conversation of store.threads) {
+      const persisted = store.messages.filter((message) => message.threadId === conversation.id);
+      expect(persisted.map((message) => message.role)).toEqual(["user", "assistant"]);
+      expect(new Set(persisted.map((message) => message.id)).size).toBe(2);
+    }
+
+    const home = await service.getHomeState();
+    expect(home.threads).toHaveLength(20);
+    expect(home).not.toHaveProperty("thread");
+    expect(home).not.toHaveProperty("messages");
+  });
 });
 
 describe("deriveThreadTitle", () => {

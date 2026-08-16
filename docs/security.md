@@ -68,9 +68,16 @@ display the resolved target to the user after tool planning and before execution
 
 ## Memory integrity
 
-Memory extraction starts disabled. When added, proposed facts are separated from active memory, retain their
-source, and can be rejected or superseded. Sensitive memory receives stricter retrieval and export rules. The
-assistant should be able to answer “why do you think that?” with evidence.
+Memory extraction is an explicit owner action. The extraction model can create only schema-validated proposals,
+and each proposal must point to a completed owner message in the selected conversation. Proposed facts are
+separated from active memory, retain their source and confidence, and can be edited, rejected or superseded.
+Only an application transition triggered by the owner can activate one.
+
+The context source queries active rows only and enforces a configurable sensitivity ceiling before retrieval.
+OpenAI defaults to levels 0-1; local and mock providers default to 0-3. Sensitivity is not yet a complete privacy
+policy: do not store secrets as memory, and review provider choice before raising a remote-provider ceiling.
+Forgetting a derived memory does not delete its source conversation, so the evidence and the user's chat-history
+controls remain independent.
 
 ## Dependency policy
 

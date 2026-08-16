@@ -147,6 +147,7 @@ function Ensure-LocalOllama {
 
     $BaseUrl = if ($EnvValues.ContainsKey("OLLAMA_BASE_URL")) { $EnvValues["OLLAMA_BASE_URL"] } else { "http://127.0.0.1:11434" }
     $Model = if ($EnvValues.ContainsKey("OLLAMA_CHAT_MODEL")) { $EnvValues["OLLAMA_CHAT_MODEL"] } else { "qwen3.5:4b" }
+    $MemoryModel = if ($EnvValues.ContainsKey("OLLAMA_MEMORY_MODEL") -and $EnvValues["OLLAMA_MEMORY_MODEL"]) { $EnvValues["OLLAMA_MEMORY_MODEL"] } else { $Model }
 
     $Uri = [Uri]$BaseUrl
     $IsLocal = $Uri.Host -in @("127.0.0.1", "localhost", "::1")
@@ -180,19 +181,21 @@ function Ensure-LocalOllama {
         Fail "Ollama is running, but the launcher could not list installed models."
     }
 
-    $ModelPresent = $false
-    foreach ($Line in $Models) {
-        if ($Line -match "^\s*$([Regex]::Escape($Model))\s") {
-            $ModelPresent = $true
-            break
+    foreach ($RequiredModel in @($Model, $MemoryModel) | Select-Object -Unique) {
+        $ModelPresent = $false
+        foreach ($Line in $Models) {
+            if ($Line -match "^\s*$([Regex]::Escape($RequiredModel))\s") {
+                $ModelPresent = $true
+                break
+            }
         }
-    }
 
-    if (-not $ModelPresent) {
-        Fail "The configured Ollama model '$Model' is not installed. Run: ollama pull $Model"
-    }
+        if (-not $ModelPresent) {
+            Fail "The configured Ollama model '$RequiredModel' is not installed. Run: ollama pull $RequiredModel"
+        }
 
-    Write-Host "Model '$Model' is available."
+        Write-Host "Model '$RequiredModel' is available."
+    }
 }
 
 function Ensure-LocalFiles {

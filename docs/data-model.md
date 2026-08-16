@@ -31,6 +31,17 @@ collapsed into one vague blob.
    admitted into later model context as a completed reply.
 9. Archiving a conversation sets `threads.archived_at`. It removes the thread from the active history UI without
    deleting its messages.
+10. Only `active` memory is eligible for model context. At most one active row may exist for a case-insensitive
+    `(kind, subject)` pair; revisions supersede rather than overwrite the prior row.
+11. Extracted memory retains provider/model metadata, an exact source message identifier and a short displayed
+    rationale. The source message must be a completed owner message in the conversation being reviewed.
+
+## Memory retrieval
+
+`memory_items` is canonical; `memory_embeddings` is only a future ranking index. The current retrieval path
+first filters on `active` status and the configured sensitivity ceiling, then applies PostgreSQL full-text
+ranking with importance and confirmation recency as deterministic tie-breakers. Proposed, rejected and
+superseded rows remain review history and are never returned by the context source.
 
 ## Why vector dimensions are not fixed in the column type
 
