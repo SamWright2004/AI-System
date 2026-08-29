@@ -7,6 +7,7 @@ export interface Thread {
   id: string;
   title: string;
   kind: "primary" | "project" | "temporary";
+  projectId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,7 +91,11 @@ export interface AssistantGateway {
 }
 
 export interface ConversationRepository {
-  createThread(input: { title: string; kind?: Thread["kind"] }): Promise<Thread>;
+  createThread(input: {
+    title: string;
+    kind?: Thread["kind"];
+    projectId?: string;
+  }): Promise<Thread>;
   findThread(threadId: string): Promise<Thread | null>;
   listThreads(limit?: number): Promise<ThreadSummary[]>;
   updateThreadTitle(threadId: string, title: string): Promise<Thread | null>;

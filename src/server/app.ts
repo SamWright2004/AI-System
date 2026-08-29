@@ -6,18 +6,25 @@ import Fastify from "fastify";
 import { ChatService } from "../core/chat/chat-service.js";
 import { ContextAssembler } from "../core/context/context-assembler.js";
 import { MemoryService } from "../core/memory/memory-service.js";
+import { HybridMemoryRetriever } from "../core/memory/hybrid-memory-retriever.js";
+import { MemoryIndexer } from "../core/memory/memory-indexer.js";
+import { ProjectService } from "../core/projects/project-service.js";
 import { createAssistant } from "../infrastructure/ai/create-assistant.js";
 import { DatabaseMemorySource } from "../infrastructure/context/database-memory-source.js";
 import { FilePersonalisationSource } from "../infrastructure/context/file-personalisation-source.js";
+import { ProjectContextSource } from "../infrastructure/context/project-context-source.js";
 import { createPool } from "../infrastructure/db/pool.js";
 import { PostgresMemoryRepository } from "../infrastructure/db/postgres-memory-repository.js";
+import { PostgresProjectRepository } from "../infrastructure/db/postgres-project-repository.js";
 import { PostgresStore } from "../infrastructure/db/postgres-store.js";
 import { createMemoryExtractor } from "../infrastructure/memory/create-memory-extractor.js";
+import { createMemoryEmbeddingGateway } from "../infrastructure/memory/create-memory-embedding.js";
 import { AppError } from "../shared/errors.js";
 import type { AppConfig } from "../shared/config.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerMemoryRoutes } from "./routes/memories.js";
+import { registerProjectRoutes } from "./routes/projects.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerThreadRoutes } from "./routes/threads.js";
 
@@ -36,36 +43,63 @@ export async function createApp(config: AppConfig) {
   const pool = createPool(config.databaseUrl);
   const store = new PostgresStore(pool);
   const memoryRepository = new PostgresMemoryRepository(pool);
+  const projectRepository = new PostgresProjectRepository(pool);
   const [assistant, memoryExtractor] = await Promise.all([
     createAssistant(config),
     createMemoryExtractor(config),
   ]);
+  const memoryEmbeddings = createMemoryEmbeddingGateway(config);
+  const memoryIndexer = memoryEmbeddings
+    ? new MemoryIndexer(memoryRepository, memoryEmbeddings, config.memoryContextMaxSensitivity)
+    : null;
+  const memoryRetriever = new HybridMemoryRetriever(
+    memoryRepository,
+    memoryEmbeddings,
+    memoryIndexer,
+    {
+      autoIndexLimit: config.memoryAutoIndexLimit,
+      minimumSemanticScore: config.memorySemanticMinScore,
+    },
+  );
   const personalisation = new FilePersonalisationSource(config.personalisationFile);
   const memorySource = new DatabaseMemorySource(
-    memoryRepository,
+    memoryRetriever,
     config.memoryContextMaxSensitivity,
   );
+  const projectSource = new ProjectContextSource(projectRepository);
   const contextAssembler = new ContextAssembler(store, {
     inputTokenBudget: config.contextInputTokenBudget,
     historyPageSize: config.contextHistoryPageSize,
-    sources: [personalisation, memorySource],
+    sources: [personalisation, projectSource, memorySource],
   });
-  const chatService = new ChatService(store, store, assistant, contextAssembler, personalisation, {
-    provider: assistant.provider,
-    model: assistant.model,
-    contextInputTokenBudget: config.contextInputTokenBudget,
-  });
+  const chatService = new ChatService(
+    store,
+    store,
+    assistant,
+    contextAssembler,
+    personalisation,
+    {
+      provider: assistant.provider,
+      model: assistant.model,
+      contextInputTokenBudget: config.contextInputTokenBudget,
+    },
+    projectRepository,
+  );
   const memoryService = new MemoryService(
     memoryRepository,
     store,
     memoryExtractor,
     config.memoryContextMaxSensitivity,
+    memoryRetriever,
+    memoryIndexer ?? undefined,
   );
+  const projectService = new ProjectService(projectRepository, store);
 
   registerHealthRoute(app, { pool, assistant, config });
   registerChatRoutes(app, { chatService, activity: store });
   registerThreadRoutes(app, { chatService });
   registerMemoryRoutes(app, { memoryService });
+  registerProjectRoutes(app, { projectService });
   registerSettingsRoutes(app, { personalisation });
 
   app.setErrorHandler((error, _request, reply) => {

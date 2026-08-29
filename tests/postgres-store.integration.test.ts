@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createPool, type DatabasePool } from "../src/infrastructure/db/pool.js";
 import { PostgresMemoryRepository } from "../src/infrastructure/db/postgres-memory-repository.js";
+import { PostgresProjectRepository } from "../src/infrastructure/db/postgres-project-repository.js";
 import { PostgresStore } from "../src/infrastructure/db/postgres-store.js";
+import { ProjectContextSource } from "../src/infrastructure/context/project-context-source.js";
 import { createApp } from "../src/server/app.js";
 import { config } from "../src/shared/config.js";
 
@@ -18,6 +20,7 @@ describeWithDatabase("PostgresStore integration", () => {
   let profileDirectory: string;
   const createdThreadIds: string[] = [];
   const createdMemoryIds: string[] = [];
+  const createdProjectIds: string[] = [];
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("TEST_DATABASE_URL is required.");
@@ -40,30 +43,36 @@ describeWithDatabase("PostgresStore integration", () => {
       await pool.query("DELETE FROM memory_items WHERE id = ANY($1::uuid[])", [createdMemoryIds]);
       createdMemoryIds.length = 0;
     }
-    if (createdThreadIds.length === 0) return;
-    await pool.query(
-      `DELETE FROM memory_items AS revision
-       USING memory_items AS source, messages AS source_message
-       WHERE revision.source_type = 'memory_revision'
-         AND revision.source_id = source.id
-         AND source.source_type IN ('message', 'owner_edited_message')
-         AND source.source_id = source_message.id
-         AND source_message.thread_id = ANY($1::uuid[])`,
-      [createdThreadIds],
-    );
-    await pool.query(
-      `DELETE FROM memory_items AS memory
-       USING messages AS source_message
-       WHERE memory.source_type IN ('message', 'owner_edited_message')
-         AND memory.source_id = source_message.id
-         AND source_message.thread_id = ANY($1::uuid[])`,
-      [createdThreadIds],
-    );
-    await pool.query("DELETE FROM activity_items WHERE metadata ->> 'threadId' = ANY($1::text[])", [
-      createdThreadIds,
-    ]);
-    await pool.query("DELETE FROM threads WHERE id = ANY($1::uuid[])", [createdThreadIds]);
-    createdThreadIds.length = 0;
+    if (createdThreadIds.length > 0) {
+      await pool.query(
+        `DELETE FROM memory_items AS revision
+         USING memory_items AS source, messages AS source_message
+         WHERE revision.source_type = 'memory_revision'
+           AND revision.source_id = source.id
+           AND source.source_type IN ('message', 'owner_edited_message')
+           AND source.source_id = source_message.id
+           AND source_message.thread_id = ANY($1::uuid[])`,
+        [createdThreadIds],
+      );
+      await pool.query(
+        `DELETE FROM memory_items AS memory
+         USING messages AS source_message
+         WHERE memory.source_type IN ('message', 'owner_edited_message')
+           AND memory.source_id = source_message.id
+           AND source_message.thread_id = ANY($1::uuid[])`,
+        [createdThreadIds],
+      );
+      await pool.query(
+        "DELETE FROM activity_items WHERE metadata ->> 'threadId' = ANY($1::text[])",
+        [createdThreadIds],
+      );
+      await pool.query("DELETE FROM threads WHERE id = ANY($1::uuid[])", [createdThreadIds]);
+      createdThreadIds.length = 0;
+    }
+    if (createdProjectIds.length > 0) {
+      await pool.query("DELETE FROM projects WHERE id = ANY($1::uuid[])", [createdProjectIds]);
+      createdProjectIds.length = 0;
+    }
   });
 
   afterAll(async () => {
@@ -292,5 +301,118 @@ describeWithDatabase("PostgresStore integration", () => {
     });
     expect(forgotten.statusCode).toBe(204);
     createdMemoryIds.pop();
+  });
+
+  it("indexes approved memory and exposes explainable hybrid recall", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/v1/memories",
+      payload: {
+        kind: "preference",
+        subject: "Preferred measurements",
+        content: "The owner prefers metric units by default.",
+        importance: 70,
+        sensitivity: 0,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    createdMemoryIds.push(created.json().id as string);
+
+    const overview = await app.inject({ method: "GET", url: "/api/v1/memories" });
+    expect(overview.statusCode).toBe(200);
+    expect(overview.json()).toMatchObject({
+      index: { enabled: true, provider: "mock", indexed: expect.any(Number) },
+    });
+
+    const search = await app.inject({
+      method: "POST",
+      url: "/api/v1/memories/search",
+      payload: { query: "Should this design use metric measurements?", limit: 5 },
+    });
+    expect(search.statusCode).toBe(200);
+    expect(search.json()).toMatchObject({
+      mode: "hybrid",
+      matches: [
+        {
+          memory: { id: created.json().id, status: "active" },
+          score: { combined: expect.any(Number) },
+          reasons: expect.any(Array),
+        },
+      ],
+    });
+  });
+
+  it("creates a project workspace, links conversation context and manages tasks", async () => {
+    const projectResponse = await app.inject({
+      method: "POST",
+      url: "/api/v1/projects",
+      payload: {
+        name: "KSP short film",
+        description: "Develop the face-free short film while preserving emotion and tension.",
+        status: "active",
+      },
+    });
+    expect(projectResponse.statusCode).toBe(201);
+    const projectId = projectResponse.json().id as string;
+    createdProjectIds.push(projectId);
+
+    const taskResponse = await app.inject({
+      method: "POST",
+      url: `/api/v1/projects/${projectId}/tasks`,
+      payload: {
+        title: "Polish the next Blender shot",
+        description: "",
+        status: "ready",
+        priority: 70,
+        dueAt: null,
+      },
+    });
+    expect(taskResponse.statusCode).toBe(201);
+
+    const thread = await store.createThread({ title: "Unscoped film chat", kind: "temporary" });
+    createdThreadIds.push(thread.id);
+    const linked = await app.inject({
+      method: "POST",
+      url: `/api/v1/projects/${projectId}/threads/${thread.id}`,
+    });
+    expect(linked.statusCode).toBe(200);
+    expect(linked.json()).toMatchObject({
+      thread: { id: thread.id, kind: "project", projectId },
+      project: { id: projectId },
+    });
+
+    const linkedThread = await store.findThread(thread.id);
+    if (!linkedThread) throw new Error("Expected the linked thread.");
+    const currentMessage = await store.addMessage({
+      threadId: thread.id,
+      role: "user",
+      content: "What should I do next?",
+    });
+    const source = new ProjectContextSource(new PostgresProjectRepository(pool));
+    const blocks = await source.load({ thread: linkedThread, currentMessage });
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({
+      source: "active-project",
+      trust: "application",
+      title: "Selected project: KSP short film",
+    });
+    expect(blocks[0]?.content).toContain("Polish the next Blender shot");
+
+    const workspace = await app.inject({ method: "GET", url: `/api/v1/projects/${projectId}` });
+    expect(workspace.statusCode).toBe(200);
+    expect(workspace.json()).toMatchObject({
+      project: { id: projectId },
+      tasks: [{ title: "Polish the next Blender shot" }],
+      threads: [{ id: thread.id }],
+    });
+
+    const detached = await app.inject({
+      method: "DELETE",
+      url: `/api/v1/projects/${projectId}/threads/${thread.id}`,
+    });
+    expect(detached.statusCode).toBe(200);
+    expect(detached.json()).toMatchObject({
+      thread: { id: thread.id, kind: "temporary", projectId: null },
+    });
   });
 });

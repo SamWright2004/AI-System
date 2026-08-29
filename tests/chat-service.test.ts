@@ -23,11 +23,12 @@ class MemoryStore implements ConversationRepository, ActivityRepository {
   public readonly messages: Message[] = [];
   public readonly activity: ActivityItem[] = [];
 
-  public async createThread(input: { title: string; kind?: Thread["kind"] }) {
+  public async createThread(input: { title: string; kind?: Thread["kind"]; projectId?: string }) {
     const thread: Thread = {
       id: `11111111-1111-4111-8111-${String(this.threads.length).padStart(12, "0")}`,
       title: input.title,
       kind: input.kind ?? "temporary",
+      projectId: input.projectId ?? null,
       createdAt: now,
       updatedAt: now,
     };

@@ -42,10 +42,11 @@ unbounded context growth.
 
 ## F2 — Honest memory
 
-Status: in progress. The first end-to-end slice now covers structured extraction for mock, Ollama and OpenAI;
-strict source validation; the proposed/active/rejected/superseded lifecycle; review UI; sensitivity-gated
-full-text retrieval; and unit plus PostgreSQL/API trust-boundary tests. Embedding ranking and broader
-model-scored evaluation remain next.
+Status: implementation complete; provider baselines are being accumulated. Structured extraction for mock,
+Ollama and OpenAI, strict source validation, the reviewed lifecycle, sensitivity gates and full-text retrieval
+are now joined by optional local/OpenAI embeddings, explainable hybrid ranking, automatic lexical fallback and
+a versioned answer-improvement harness with structured model judges. `Test recall` exposes the selected claims
+and ranking reasons before they reach a reply.
 
 - extract proposed memories with a cheap structured model pass;
 - classify facts, preferences, relationships, decisions, routines and project state;
@@ -54,10 +55,15 @@ model-scored evaluation remain next.
 - add hybrid retrieval: deterministic filters, full-text search and embeddings;
 - build a regression set for false memories and incorrect retrieval.
 
-Exit criteria: memory improves answers on a hand-built evaluation set and never silently promotes an unreviewed
-claim into durable personal truth.
+Exit criteria: the automated trust gates pass, and each configured production provider records a positive
+answer-improvement baseline on the hand-built set without silently promoting an unreviewed claim. The code path
+and harness are complete; the per-model baseline remains an operational result rather than a hard-coded claim.
 
 ## F3 — Project workspaces on demand
+
+Status: in progress. The first vertical slice provides durable project creation/edit/archive, task tracking,
+linked conversations, a quiet Projects drawer and selected-project context. Ordinary startup remains a fresh,
+unscoped chat. Conversational project commands, review cards and checkpoint summaries remain next.
 
 - create and open projects conversationally;
 - render project state only when requested or relevant;

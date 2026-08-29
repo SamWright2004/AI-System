@@ -4,10 +4,15 @@ import type { ChatService } from "../../core/chat/chat-service.js";
 import type { ActivityRepository, ChatStreamEvent } from "../../core/chat/types.js";
 import { AppError } from "../../shared/errors.js";
 
-const chatRequestSchema = z.object({
-  threadId: z.uuid().optional(),
-  content: z.string().trim().min(1).max(32_000),
-});
+const chatRequestSchema = z
+  .object({
+    threadId: z.uuid().optional(),
+    projectId: z.uuid().optional(),
+    content: z.string().trim().min(1).max(32_000),
+  })
+  .refine((value) => !(value.threadId && value.projectId), {
+    message: "Choose an existing conversation or a project for a new one, not both.",
+  });
 
 const retryRequestSchema = z.object({
   threadId: z.uuid(),
@@ -91,6 +96,7 @@ export function registerChatRoutes(
         dependencies.chatService.reply({
           content: parsed.data.content,
           ...(parsed.data.threadId ? { threadId: parsed.data.threadId } : {}),
+          ...(parsed.data.projectId ? { projectId: parsed.data.projectId } : {}),
           signal,
         }),
       null,

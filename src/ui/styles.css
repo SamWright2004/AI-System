@@ -101,11 +101,24 @@ button {
 }
 
 .system-bar__thread {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   max-width: min(42vw, 520px);
   overflow: hidden;
   color: #7f8998;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.system-bar__thread small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #4f8b91;
+  font-size: 8px;
+  letter-spacing: 0.09em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
 }
 
 .system-mark {
@@ -398,6 +411,17 @@ button {
   margin-top: 9px;
   color: #657081;
   font-size: 12px;
+}
+
+.resting-copy small {
+  display: inline-block;
+  margin-top: 13px;
+  padding: 5px 8px;
+  border: 1px solid rgba(111, 222, 237, 0.12);
+  border-radius: 8px;
+  color: #6ea3a8;
+  background: rgba(59, 126, 138, 0.06);
+  font-size: 9px;
 }
 
 .conversation-toolbar {
@@ -1029,14 +1053,112 @@ button {
   color: #596474;
 }
 
+.memory-runtime p {
+  margin: 4px 0;
+}
+
+.memory-runtime button {
+  margin-top: 5px;
+  padding: 5px 8px;
+  border: 1px solid rgba(111, 222, 237, 0.13);
+  border-radius: 7px;
+  color: #83aeb4;
+  background: rgba(59, 126, 138, 0.08);
+  font-size: 9px;
+  cursor: pointer;
+}
+
 .memory-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   margin: 16px 0 10px;
   padding: 3px;
   border-radius: 10px;
   background: rgba(29, 35, 46, 0.48);
+}
+
+.memory-recall form > label {
+  display: block;
+  margin: 4px 2px 7px;
+  color: #8792a2;
+  font-size: 10px;
+}
+
+.memory-recall form > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+}
+
+.memory-recall input {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(173, 198, 231, 0.1);
+  border-radius: 9px;
+  outline: 0;
+  color: #dce4ed;
+  background: rgba(27, 33, 44, 0.64);
+}
+
+.memory-recall form button {
+  padding: 8px 11px;
+  border: 1px solid rgba(111, 222, 237, 0.18);
+  border-radius: 9px;
+  color: #c7edf0;
+  background: rgba(59, 126, 138, 0.12);
+  cursor: pointer;
+}
+
+.memory-recall__results > p:first-child {
+  margin: 13px 2px 8px;
+  color: #6e7c8d;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.memory-recall__fallback {
+  margin: 7px 2px;
+  color: #b69a72;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.memory-recall__match {
+  padding: 11px 12px;
+  border: 1px solid rgba(175, 199, 231, 0.08);
+  border-radius: 10px;
+  background: rgba(29, 35, 46, 0.46);
+}
+
+.memory-recall__match + .memory-recall__match {
+  margin-top: 7px;
+}
+
+.memory-recall__match header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #d6dee8;
+  font-size: 11px;
+}
+
+.memory-recall__match header span {
+  color: #78aeb2;
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-recall__match p {
+  margin: 7px 0;
+  color: #a9b4c2;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.memory-recall__match small {
+  color: #637081;
+  font-size: 8px;
 }
 
 .memory-tabs button {
@@ -1532,6 +1654,313 @@ button {
     transform: translateX(24px);
     opacity: 0;
   }
+}
+
+.project-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 18px 30px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(137, 153, 176, 0.22) transparent;
+}
+
+.project-panel__intro {
+  padding: 13px 14px;
+  border: 1px solid rgba(111, 222, 237, 0.13);
+  border-radius: 12px;
+  background: rgba(59, 126, 138, 0.07);
+}
+
+.project-panel__intro strong {
+  color: #c7edf0;
+  font-size: 12px;
+}
+
+.project-panel__intro p {
+  margin: 6px 0 0;
+  color: #778292;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.project-create {
+  width: 100%;
+  margin: 12px 0 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(111, 222, 237, 0.17);
+  border-radius: 9px;
+  color: #bde7e9;
+  background: rgba(59, 126, 138, 0.1);
+  cursor: pointer;
+}
+
+.project-form {
+  margin: 8px 0 12px;
+  padding: 13px;
+  border: 1px solid rgba(175, 199, 231, 0.09);
+  border-radius: 12px;
+  background: rgba(29, 35, 46, 0.48);
+}
+
+.project-form label {
+  display: block;
+  color: #8792a2;
+  font-size: 10px;
+}
+
+.project-form label + label {
+  margin-top: 10px;
+}
+
+.project-form label span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.project-form input,
+.project-form textarea,
+.project-form select,
+.project-tasks input,
+.project-task select {
+  width: 100%;
+  border: 1px solid rgba(173, 198, 231, 0.1);
+  border-radius: 9px;
+  outline: 0;
+  color: #dce4ed;
+  background: rgba(27, 33, 44, 0.64);
+}
+
+.project-form input,
+.project-form textarea,
+.project-form select {
+  padding: 9px 10px;
+}
+
+.project-form textarea {
+  resize: vertical;
+}
+
+.project-form footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.project-form button,
+.project-actions button,
+.project-workspace > header button,
+.project-tasks form button {
+  padding: 7px 9px;
+  border: 1px solid rgba(173, 198, 231, 0.11);
+  border-radius: 8px;
+  color: #aeb9c7;
+  background: rgba(36, 43, 56, 0.55);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.project-form button[type="submit"],
+.project-actions button:first-child,
+.project-tasks form button {
+  border-color: rgba(111, 222, 237, 0.18);
+  color: #c7edf0;
+  background: rgba(59, 126, 138, 0.11);
+}
+
+.project-list {
+  margin: 8px 0 14px;
+}
+
+.project-list > button {
+  display: block;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.project-list > button:hover,
+.project-list > button.is-active {
+  border-color: rgba(173, 198, 231, 0.08);
+  background: rgba(39, 47, 61, 0.43);
+}
+
+.project-list > button.is-active {
+  box-shadow: inset 2px 0 0 rgba(110, 231, 242, 0.42);
+}
+
+.project-list button > span:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.project-list strong {
+  color: #d7dee8;
+  font-size: 12px;
+}
+
+.project-list small {
+  color: #678a8e;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.project-list button > span:nth-child(2),
+.project-list em {
+  display: block;
+  margin-top: 5px;
+  color: #687586;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.project-workspace {
+  padding-top: 14px;
+  border-top: 1px solid rgba(173, 198, 231, 0.08);
+}
+
+.project-workspace > header,
+.project-tasks > header,
+.project-threads > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.project-workspace > header span {
+  color: #6f9599;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-workspace h3 {
+  margin: 5px 0 0;
+  color: #dce3ec;
+  font-size: 16px;
+}
+
+.project-workspace > p {
+  margin: 10px 0;
+  color: #929dab;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 11px 0 16px;
+}
+
+.project-tasks,
+.project-threads {
+  margin-top: 15px;
+}
+
+.project-tasks h4,
+.project-threads h4 {
+  margin: 0;
+  color: #cbd4df;
+  font-size: 11px;
+}
+
+.project-tasks header span,
+.project-threads header span {
+  color: #657182;
+  font-size: 9px;
+}
+
+.project-tasks form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.project-tasks input {
+  min-width: 0;
+  padding: 8px 9px;
+}
+
+.project-task {
+  display: grid;
+  grid-template-columns: 1fr 118px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: rgba(29, 35, 46, 0.4);
+}
+
+.project-task + .project-task {
+  margin-top: 4px;
+}
+
+.project-task > span {
+  color: #aeb9c7;
+  font-size: 10px;
+}
+
+.project-task--done > span,
+.project-task--cancelled > span {
+  color: #626d7b;
+  text-decoration: line-through;
+}
+
+.project-task select {
+  padding: 5px 6px;
+  font-size: 8px;
+}
+
+.project-threads > p {
+  color: #697485;
+  font-size: 10px;
+}
+
+.project-threads > button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 8px;
+  color: #aeb9c7;
+  text-align: left;
+  background: rgba(29, 35, 46, 0.4);
+  cursor: pointer;
+}
+
+.project-threads > button + button {
+  margin-top: 4px;
+}
+
+.project-threads small {
+  flex: 0 0 auto;
+  color: #647081;
+  font-size: 8px;
+}
+
+.project-archive {
+  margin-top: 18px;
+  padding: 6px 0;
+  border: 0;
+  color: #806c72;
+  background: transparent;
+  font-size: 9px;
+  cursor: pointer;
 }
 
 @media (max-width: 900px) {
