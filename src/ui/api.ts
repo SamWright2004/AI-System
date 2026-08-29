@@ -1,10 +1,21 @@
 import type { ChatStreamEvent, HomeState, Thread, ThreadState } from "../core/chat/types.js";
 import type { PersonalisationProfile } from "../core/settings/types.js";
 import type {
+  Project,
+  ProjectDraft,
+  ProjectSummary,
+  ProjectTask,
+  ProjectTaskDraft,
+  ProjectThreadLink,
+  ProjectWorkspace,
+} from "../core/projects/types.js";
+import type {
   MemoryDraft,
   MemoryExtractionSummary,
+  MemoryIndexSummary,
   MemoryItem,
   MemoryOverview,
+  MemoryRetrievalResult,
 } from "../core/memory/types.js";
 
 interface ApiErrorBody {
@@ -73,7 +84,7 @@ async function streamRequest(
 }
 
 export async function streamChat(
-  input: { threadId?: string; content: string },
+  input: { threadId?: string; projectId?: string; content: string },
   signal: AbortSignal,
   onEvent: (event: ChatStreamEvent) => void,
 ): Promise<void> {
@@ -125,6 +136,18 @@ export async function extractMemories(threadId: string): Promise<MemoryExtractio
   });
 }
 
+export async function searchMemories(query: string, limit = 12): Promise<MemoryRetrievalResult> {
+  return apiJson<MemoryRetrievalResult>("/api/v1/memories/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, limit }),
+  });
+}
+
+export async function indexMemories(): Promise<MemoryIndexSummary> {
+  return apiJson<MemoryIndexSummary>("/api/v1/memories/index", { method: "POST" });
+}
+
 export async function createMemory(input: MemoryDraft): Promise<MemoryItem> {
   return apiJson<MemoryItem>("/api/v1/memories", {
     method: "POST",
@@ -152,4 +175,73 @@ export async function rejectMemory(id: string): Promise<MemoryItem> {
 export async function forgetMemory(id: string): Promise<void> {
   const response = await fetch("/api/v1/memories/" + id, { method: "DELETE" });
   if (!response.ok) throw new Error("The memory could not be forgotten.");
+}
+
+export async function loadProjects(): Promise<ProjectSummary[]> {
+  return apiJson<ProjectSummary[]>("/api/v1/projects");
+}
+
+export async function loadProject(projectId: string): Promise<ProjectWorkspace> {
+  return apiJson<ProjectWorkspace>(`/api/v1/projects/${projectId}`);
+}
+
+export async function createProject(input: ProjectDraft): Promise<Project> {
+  return apiJson<Project>("/api/v1/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateProject(projectId: string, input: ProjectDraft): Promise<Project> {
+  return apiJson<Project>(`/api/v1/projects/${projectId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function archiveProject(projectId: string): Promise<void> {
+  const response = await fetch(`/api/v1/projects/${projectId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error("The project could not be archived.");
+}
+
+export async function linkProjectThread(
+  projectId: string,
+  threadId: string,
+): Promise<ProjectThreadLink> {
+  return apiJson<ProjectThreadLink>(`/api/v1/projects/${projectId}/threads/${threadId}`, {
+    method: "POST",
+  });
+}
+
+export async function unlinkProjectThread(
+  projectId: string,
+  threadId: string,
+): Promise<ProjectThreadLink> {
+  return apiJson<ProjectThreadLink>(`/api/v1/projects/${projectId}/threads/${threadId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function createProjectTask(
+  projectId: string,
+  input: ProjectTaskDraft,
+): Promise<ProjectTask> {
+  return apiJson<ProjectTask>(`/api/v1/projects/${projectId}/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateProjectTask(
+  taskId: string,
+  input: ProjectTaskDraft,
+): Promise<ProjectTask> {
+  return apiJson<ProjectTask>(`/api/v1/project-tasks/${taskId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }

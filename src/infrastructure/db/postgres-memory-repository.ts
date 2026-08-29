@@ -1,8 +1,10 @@
 import type {
   ExtractedMemoryDraft,
   MemoryDraft,
+  MemoryEmbeddingRecord,
   MemoryItem,
   MemoryRepository,
+  MemoryRetrievalRepository,
   MemoryStatus,
 } from "../../core/memory/types.js";
 import type { DatabasePool } from "./pool.js";
@@ -107,7 +109,14 @@ function mapMemory(row: MemoryRow): MemoryItem {
   };
 }
 
-export class PostgresMemoryRepository implements MemoryRepository {
+function vectorLiteral(vector: ReadonlyArray<number>): string {
+  if (vector.length === 0 || vector.some((value) => !Number.isFinite(value))) {
+    throw new Error("Cannot persist an invalid memory embedding.");
+  }
+  return `[${vector.join(",")}]`;
+}
+
+export class PostgresMemoryRepository implements MemoryRepository, MemoryRetrievalRepository {
   public constructor(private readonly pool: DatabasePool) {}
 
   public async listMemories(
@@ -457,21 +466,32 @@ export class PostgresMemoryRepository implements MemoryRepository {
     limit: number;
     maxSensitivity: number;
   }): Promise<MemoryItem[]> {
+    const candidates = await this.searchLexicalCandidates(input);
+    return candidates.map((candidate) => candidate.memory);
+  }
+
+  public async searchLexicalCandidates(input: {
+    query: string;
+    limit: number;
+    maxSensitivity: number;
+  }): Promise<Array<{ memory: MemoryItem; lexicalScore: number }>> {
     const result = await this.pool.query<MemoryRow & { lexical_rank: number | string }>(
       [
+        "WITH search_query AS (SELECT websearch_to_tsquery('simple', $1) AS value)",
         "SELECT " + memoryColumns + ",",
         "  ts_rank_cd(",
         "    to_tsvector('simple', memory.subject || ' ' || memory.content),",
-        "    websearch_to_tsquery('simple', $1)",
+        "    search_query.value",
         "  ) AS lexical_rank",
         "FROM memory_items AS memory",
         memoryJoins,
+        "CROSS JOIN search_query",
         "WHERE memory.status = 'active'",
         "  AND memory.sensitivity <= $2",
         "  AND (",
         "    memory.importance >= 75",
         "    OR to_tsvector('simple', memory.subject || ' ' || memory.content)",
-        "       @@ websearch_to_tsquery('simple', $1)",
+        "       @@ search_query.value",
         "  )",
         "ORDER BY lexical_rank DESC,",
         "  memory.importance DESC,",
@@ -482,7 +502,157 @@ export class PostgresMemoryRepository implements MemoryRepository {
       ].join("\n"),
       [input.query, input.maxSensitivity, input.limit],
     );
+    return result.rows.map((row) => ({
+      memory: mapMemory(row),
+      lexicalScore: Math.max(0, Math.min(1, Number(row.lexical_rank) * 4)),
+    }));
+  }
+
+  public async searchSemanticCandidates(input: {
+    vector: number[];
+    provider: string;
+    model: string;
+    dimensions: number;
+    limit: number;
+    maxSensitivity: number;
+  }): Promise<Array<{ memory: MemoryItem; semanticScore: number }>> {
+    if (input.vector.length !== input.dimensions) {
+      throw new Error("Query embedding dimensions do not match the declared dimensions.");
+    }
+    const result = await this.pool.query<MemoryRow & { semantic_score: number | string }>(
+      [
+        "SELECT " + memoryColumns + ",",
+        "  1 - (memory_embedding.embedding <=> $1::vector) AS semantic_score",
+        "FROM memory_embeddings AS memory_embedding",
+        "JOIN memory_items AS memory ON memory.id = memory_embedding.memory_id",
+        memoryJoins,
+        "WHERE memory.status = 'active'",
+        "  AND memory.sensitivity <= $2",
+        "  AND memory_embedding.provider = $3",
+        "  AND memory_embedding.model = $4",
+        "  AND memory_embedding.dimensions = $5",
+        "ORDER BY memory_embedding.embedding <=> $1::vector,",
+        "  memory.importance DESC, memory.last_confirmed_at DESC NULLS LAST",
+        "LIMIT $6",
+      ].join("\n"),
+      [
+        vectorLiteral(input.vector),
+        input.maxSensitivity,
+        input.provider,
+        input.model,
+        input.dimensions,
+        input.limit,
+      ],
+    );
+    return result.rows.map((row) => ({
+      memory: mapMemory(row),
+      semanticScore: Math.max(-1, Math.min(1, Number(row.semantic_score))),
+    }));
+  }
+
+  public async listActiveMemoriesWithoutEmbedding(input: {
+    provider: string;
+    model: string;
+    maxSensitivity: number;
+    limit: number;
+  }): Promise<MemoryItem[]> {
+    const result = await this.pool.query<MemoryRow>(
+      [
+        "SELECT " + memoryColumns,
+        "FROM memory_items AS memory",
+        memoryJoins,
+        "WHERE memory.status = 'active'",
+        "  AND memory.sensitivity <= $1",
+        "  AND NOT EXISTS (",
+        "    SELECT 1 FROM memory_embeddings AS embedding",
+        "    WHERE embedding.memory_id = memory.id",
+        "      AND embedding.provider = $2",
+        "      AND embedding.model = $3",
+        "  )",
+        "ORDER BY memory.importance DESC, memory.updated_at DESC, memory.id",
+        "LIMIT $4",
+      ].join("\n"),
+      [input.maxSensitivity, input.provider, input.model, input.limit],
+    );
     return result.rows.map(mapMemory);
+  }
+
+  public async upsertMemoryEmbeddings(
+    records: ReadonlyArray<MemoryEmbeddingRecord>,
+  ): Promise<void> {
+    if (records.length === 0) return;
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (const record of records) {
+        if (record.vector.length !== record.dimensions) {
+          throw new Error("Memory embedding dimensions do not match the vector.");
+        }
+        await client.query(
+          [
+            "DELETE FROM memory_embeddings",
+            "WHERE memory_id = $1 AND provider = $2 AND model = $3 AND dimensions <> $4",
+          ].join("\n"),
+          [record.memoryId, record.provider, record.model, record.dimensions],
+        );
+        await client.query(
+          [
+            "INSERT INTO memory_embeddings (memory_id, provider, model, dimensions, embedding)",
+            "SELECT memory.id, $2, $3, $4, $5::vector",
+            "FROM memory_items AS memory",
+            "WHERE memory.id = $1 AND memory.status = 'active'",
+            "ON CONFLICT (memory_id, provider, model, dimensions) DO UPDATE",
+            "SET embedding = EXCLUDED.embedding, created_at = now()",
+          ].join("\n"),
+          [
+            record.memoryId,
+            record.provider,
+            record.model,
+            record.dimensions,
+            vectorLiteral(record.vector),
+          ],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  public async getMemoryEmbeddingCoverage(input: {
+    provider: string;
+    model: string;
+    maxSensitivity: number;
+  }): Promise<{ eligible: number; indexed: number; dimensions: number | null }> {
+    const result = await this.pool.query<{
+      eligible: number;
+      indexed: number;
+      dimensions: number | null;
+    }>(
+      [
+        "SELECT",
+        "  COUNT(*)::int AS eligible,",
+        "  COUNT(*) FILTER (WHERE EXISTS (",
+        "    SELECT 1 FROM memory_embeddings AS embedding",
+        "    WHERE embedding.memory_id = memory.id",
+        "      AND embedding.provider = $1",
+        "      AND embedding.model = $2",
+        "  ))::int AS indexed,",
+        "  (SELECT MAX(embedding.dimensions)::int",
+        "   FROM memory_embeddings AS embedding",
+        "   JOIN memory_items AS embedded_memory ON embedded_memory.id = embedding.memory_id",
+        "   WHERE embedding.provider = $1 AND embedding.model = $2",
+        "     AND embedded_memory.status = 'active'",
+        "     AND embedded_memory.sensitivity <= $3) AS dimensions",
+        "FROM memory_items AS memory",
+        "WHERE memory.status = 'active' AND memory.sensitivity <= $3",
+      ].join("\n"),
+      [input.provider, input.model, input.maxSensitivity],
+    );
+    return result.rows[0] ?? { eligible: 0, indexed: 0, dimensions: null };
   }
 
   private async findSourceThreadId(id: string): Promise<string | null> {

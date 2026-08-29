@@ -2,13 +2,15 @@ import { useMemo, useState, type FormEvent } from "react";
 import type {
   MemoryDraft,
   MemoryExtractionSummary,
+  MemoryIndexSummary,
   MemoryItem,
   MemoryKind,
   MemoryOverview,
+  MemoryRetrievalResult,
 } from "../../core/memory/types.js";
 import { memoryKinds } from "../../core/memory/types.js";
 
-type MemoryTab = "review" | "active" | "history";
+type MemoryTab = "review" | "active" | "recall" | "history";
 
 const kindLabels: Record<MemoryKind, string> = {
   fact: "Fact",
@@ -240,6 +242,8 @@ export function MemoryPanel({
   overview,
   activeThreadId,
   onScan,
+  onSearch,
+  onIndex,
   onCreate,
   onEdit,
   onApprove,
@@ -249,6 +253,8 @@ export function MemoryPanel({
   overview: MemoryOverview | null;
   activeThreadId: string | null;
   onScan: () => Promise<MemoryExtractionSummary>;
+  onSearch: (query: string) => Promise<MemoryRetrievalResult>;
+  onIndex: () => Promise<MemoryIndexSummary>;
   onCreate: (input: MemoryDraft) => Promise<void>;
   onEdit: (id: string, input: MemoryDraft) => Promise<void>;
   onApprove: (id: string) => Promise<void>;
@@ -259,6 +265,10 @@ export function MemoryPanel({
   const [editing, setEditing] = useState<MemoryItem | "new" | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [indexing, setIndexing] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [recallQuery, setRecallQuery] = useState("");
+  const [recallResult, setRecallResult] = useState<MemoryRetrievalResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -266,6 +276,7 @@ export function MemoryPanel({
     if (!overview) return [];
     if (tab === "review") return overview.proposed;
     if (tab === "active") return overview.active;
+    if (tab === "recall") return [];
     return overview.history;
   }, [overview, tab]);
 
@@ -304,6 +315,39 @@ export function MemoryPanel({
     }
   }
 
+  async function rebuildIndex() {
+    setIndexing(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const result = await onIndex();
+      setNotice(
+        result.created === 0
+          ? "The semantic index is already current."
+          : `Indexed ${result.created} approved ${result.created === 1 ? "memory" : "memories"}.`,
+      );
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : "The memory index failed.");
+    } finally {
+      setIndexing(false);
+    }
+  }
+
+  async function testRecall(event: FormEvent) {
+    event.preventDefault();
+    const query = recallQuery.trim();
+    if (!query) return;
+    setSearching(true);
+    setActionError(null);
+    try {
+      setRecallResult(await onSearch(query));
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : "The memory search failed.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
   if (!overview) {
     return <p className="panel-empty">Loading memory…</p>;
   }
@@ -326,11 +370,24 @@ export function MemoryPanel({
       {!activeThreadId ? (
         <p className="memory-hint">Open a saved conversation to review it for possible memories.</p>
       ) : null}
-      <p className="memory-runtime">
-        Extractor: {overview.extractor.provider} / {overview.extractor.model}. Automatic context
-        uses {(sensitivityLabels[overview.contextPolicy.maxSensitivity] ?? "unknown").toLowerCase()}{" "}
-        or lower sensitivity (level {overview.contextPolicy.maxSensitivity}).
-      </p>
+      <div className="memory-runtime">
+        <p>
+          Extractor: {overview.extractor.provider} / {overview.extractor.model}. Automatic context
+          uses{" "}
+          {(sensitivityLabels[overview.contextPolicy.maxSensitivity] ?? "unknown").toLowerCase()} or
+          lower sensitivity (level {overview.contextPolicy.maxSensitivity}).
+        </p>
+        <p>
+          {overview.index.enabled
+            ? `Semantic index: ${overview.index.indexed}/${overview.index.eligible} · ${overview.index.provider}/${overview.index.model}`
+            : "Semantic index is off; recall uses PostgreSQL full-text search."}
+        </p>
+        {overview.index.enabled && overview.index.pending > 0 ? (
+          <button type="button" onClick={() => void rebuildIndex()} disabled={indexing}>
+            {indexing ? "Indexing…" : `Index ${overview.index.pending} pending`}
+          </button>
+        ) : null}
+      </div>
 
       {notice ? (
         <p className="panel-note" role="status">
@@ -368,6 +425,13 @@ export function MemoryPanel({
           Remembered <span>{overview.counts.active}</span>
         </button>
         <button
+          className={tab === "recall" ? "is-active" : ""}
+          type="button"
+          onClick={() => setTab("recall")}
+        >
+          Test recall
+        </button>
+        <button
           className={tab === "history" ? "is-active" : ""}
           type="button"
           onClick={() => setTab("history")}
@@ -377,7 +441,57 @@ export function MemoryPanel({
       </nav>
 
       <div className="memory-list">
-        {items.length === 0 ? (
+        {tab === "recall" ? (
+          <section className="memory-recall">
+            <form onSubmit={(event) => void testRecall(event)}>
+              <label htmlFor="memory-recall-query">
+                Ask what should be remembered for a message
+              </label>
+              <div>
+                <input
+                  id="memory-recall-query"
+                  value={recallQuery}
+                  onChange={(event) => setRecallQuery(event.target.value)}
+                  placeholder="e.g. How should I structure this reply?"
+                  maxLength={4_000}
+                />
+                <button type="submit" disabled={searching || !recallQuery.trim()}>
+                  {searching ? "Searching…" : "Test"}
+                </button>
+              </div>
+            </form>
+            {recallResult ? (
+              <div className="memory-recall__results">
+                <p>
+                  {recallResult.mode === "hybrid" ? "Hybrid" : "Full-text"} retrieval ·{" "}
+                  {recallResult.matches.length} selected
+                </p>
+                {recallResult.diagnostics.fallbackReason ? (
+                  <p className="memory-recall__fallback">
+                    Semantic fallback: {recallResult.diagnostics.fallbackReason}
+                  </p>
+                ) : null}
+                {recallResult.matches.length === 0 ? (
+                  <p className="panel-empty">No approved memory is relevant to that message.</p>
+                ) : null}
+                {recallResult.matches.map((match) => (
+                  <article key={match.memory.id} className="memory-recall__match">
+                    <header>
+                      <strong>{match.memory.subject}</strong>
+                      <span>{Math.round(match.score.combined * 100)}%</span>
+                    </header>
+                    <p>{match.memory.content}</p>
+                    <small>{match.reasons.join(" · ")}</small>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="panel-empty">
+                This shows exactly which approved memories a future reply would receive and why.
+              </p>
+            )}
+          </section>
+        ) : items.length === 0 ? (
           <p className="panel-empty">
             {tab === "review"
               ? "No claims are waiting for review."

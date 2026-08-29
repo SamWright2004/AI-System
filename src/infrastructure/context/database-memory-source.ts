@@ -1,4 +1,8 @@
-import type { MemoryRepository } from "../../core/memory/types.js";
+import type {
+  MemoryRepository,
+  MemoryRetrievalResult,
+  MemoryRetriever,
+} from "../../core/memory/types.js";
 import type {
   ContextCandidate,
   ContextSource,
@@ -7,25 +11,59 @@ import type {
 
 export class DatabaseMemorySource implements ContextSource {
   public readonly id = "approved-memory";
+  private readonly retriever: MemoryRetriever;
 
   public constructor(
-    private readonly memories: MemoryRepository,
+    memories: MemoryRetriever | MemoryRepository,
     private readonly maxSensitivity: number,
-  ) {}
+  ) {
+    this.retriever =
+      "retrieve" in memories
+        ? memories
+        : {
+            retrieve: async (input): Promise<MemoryRetrievalResult> => {
+              const items = await memories.searchActiveMemories(input);
+              return {
+                query: input.query,
+                mode: "lexical",
+                matches: items.map((memory) => ({
+                  memory,
+                  score: {
+                    lexical: 1,
+                    semantic: null,
+                    importance: memory.importance / 100,
+                    recency: 0,
+                    combined: 1,
+                  },
+                  reasons: ["wording match"],
+                })),
+                diagnostics: {
+                  lexicalCandidates: items.length,
+                  semanticCandidates: 0,
+                  indexedBeforeSearch: 0,
+                  embeddingProvider: null,
+                  embeddingModel: null,
+                  fallbackReason: null,
+                },
+              };
+            },
+          };
+  }
 
   public async load(input: ContextSourceInput): Promise<ReadonlyArray<ContextCandidate>> {
-    const memories = await this.memories.searchActiveMemories({
+    const result = await this.retriever.retrieve({
       query: input.currentMessage.content,
       limit: 16,
       maxSensitivity: this.maxSensitivity,
+      ...(input.signal ? { signal: input.signal } : {}),
     });
 
-    return memories.map((memory) => ({
+    return result.matches.map(({ memory, score, reasons }) => ({
       id: "memory:" + memory.id,
       source: this.id,
       title: "Approved " + memory.kind + ": " + memory.subject,
       trust: "application",
-      priority: 600 + memory.importance,
+      priority: 600 + Math.round(score.combined * 100),
       content: JSON.stringify({
         kind: memory.kind,
         subject: memory.subject,
@@ -36,6 +74,11 @@ export class DatabaseMemorySource implements ContextSource {
           type: memory.source.type,
           id: memory.source.id,
           conversation: memory.source.threadTitle,
+        },
+        retrieval: {
+          mode: result.mode,
+          score: score.combined,
+          reasons,
         },
       }),
     }));

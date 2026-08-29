@@ -17,6 +17,8 @@ This is the foundation, not a fake finished assistant. It currently provides:
 - automatic conversation titles, rename/archive controls, message copy and Markdown/JSON export;
 - private hot-reloaded personalisation that can be edited in-app to shape identity and working style;
 - review-first personal memory with visible evidence, confidence, revisions and sensitivity controls;
+- explainable hybrid memory recall with disposable embeddings and a full-text fallback;
+- on-demand project workspaces with tasks, linked conversations and canonical project context;
 - persisted provider, token, timing and context-selection diagnostics on assistant messages;
 - deterministic tool-risk and approval policy;
 - audit, approval, run, outbox and activity records ready for later capabilities;
@@ -56,6 +58,20 @@ ollama pull qwen3.5:4b
 Open `.env`, set `AI_PROVIDER=ollama`, and restart `pnpm dev`. Replies remain on the local provider path and
 the adapter records Ollama's prompt, generation and timing telemetry when it is supplied.
 
+For semantic memory recall, also pull an embedding model and name it in `.env`:
+
+```powershell
+ollama pull embeddinggemma
+```
+
+```dotenv
+OLLAMA_EMBEDDING_MODEL=embeddinggemma
+MEMORY_EMBEDDING_PROVIDER=auto
+```
+
+This is optional. Without it, approved memory continues to use PostgreSQL full-text ranking and chat still
+works normally.
+
 ## Make it yours
 
 Open Settings from the top-right control or press `Ctrl+,`. You can edit the owner and assistant names, locale,
@@ -76,8 +92,8 @@ Keep secrets out of the profile. It is intentionally eligible for model context.
 
 Conversation history is selected by `CONTEXT_INPUT_TOKEN_BUDGET` and read backwards in small database pages.
 The current user message is always preserved, older history is admitted as complete turns, and the resulting
-selection diagnostics are stored with the reply. Approved memory already implements the same `ContextSource`
-contract; future project and document retrieval can follow it without modifying the chat pipeline.
+selection diagnostics are stored with the reply. Approved memory and a selected project both implement the
+same `ContextSource` contract; future document retrieval can follow it without modifying the chat pipeline.
 
 ## Review what it remembers
 
@@ -96,6 +112,25 @@ The mock provider only recognises an explicit leading “remember …” request
 retrieval applies `MEMORY_CONTEXT_MAX_SENSITIVITY`; the default is conservative for a remote provider and
 allows all levels for local/mock operation.
 
+The **Test recall** tab shows which approved memories a sample message would receive, their combined ranking
+score and the reasons they were selected. When embeddings are configured, missing approved memories are
+indexed in small batches and semantic similarity is fused with full-text rank, importance and confirmation
+recency. If the embedding model is unavailable, the request falls back to full-text recall instead of failing.
+
+Run `pnpm eval:memory` to compare the configured assistant with and without approved-memory context on the
+versioned answer-improvement set. Ollama and OpenAI use a structured model judge; mock mode uses deterministic
+claim checks so the harness itself remains testable without a paid call.
+
+## Work inside projects
+
+Open Projects from the top-left folder or press `Ctrl+Shift+P`. A project keeps its objective, status, tasks
+and linked conversations together. Choose **Fresh project chat** to start a clean conversation that receives
+that project's canonical state, or move an existing open conversation into the workspace.
+
+Ordinary fresh chats remain unscoped. A project is injected only when the conversation is explicitly linked,
+and archiving a project detaches its conversations without deleting their history. This is the first F3 slice;
+conversational project creation, review cards and automatic checkpoints remain later work.
+
 ## Use it day to day
 
 The application intentionally starts with a fresh conversation even when older chats exist. A database thread
@@ -106,6 +141,7 @@ is created only when you send the first message, so merely opening the applicati
 | Open/search history        | top-left menu or `Ctrl+K`             |
 | Start a fresh conversation | history button or `Ctrl+N`            |
 | Review personal memory     | top-left brain or `Ctrl+Shift+M`      |
+| Open project workspaces    | top-left folder or `Ctrl+Shift+P`     |
 | Open settings              | top-right settings or `Ctrl+,`        |
 | Stop a response            | stop button or `Escape`               |
 | Add a line break           | `Shift+Enter` in Enter-to-send mode   |
@@ -142,6 +178,7 @@ Restart `pnpm dev`. The key remains server-side and `.env` is excluded from Git.
 | `pnpm verify`           | Run every local quality gate used by CI          |
 | `pnpm db:migrate`       | Apply new immutable SQL migrations               |
 | `pnpm db:seed`          | Add safe, repeatable starter records             |
+| `pnpm eval:memory`      | Measure answer improvement from approved memory  |
 | `docker compose down`   | Stop the database without deleting its volume    |
 
 Do not run `docker compose down -v` casually: `-v` deletes the local database volume.
@@ -173,6 +210,7 @@ lets us replace a provider or split out a worker later without rewriting the sys
 - [Security and autonomy](docs/security.md)
 - [Roadmap](docs/roadmap.md)
 - [Honest-memory evaluation set](docs/evaluations/memory-v1.md)
+- [Hybrid retrieval and answer evaluation](docs/evaluations/memory-v2.md)
 - [Architecture decisions](docs/adr/0001-modular-monolith.md), including
   [budgeted context assembly](docs/adr/0004-budgeted-context-assembly.md)
 

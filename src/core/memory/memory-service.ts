@@ -4,9 +4,13 @@ import type {
   MemoryDraft,
   MemoryExtractionGateway,
   MemoryExtractionSummary,
+  MemoryIndexManager,
+  MemoryIndexSummary,
   MemoryItem,
   MemoryOverview,
   MemoryRepository,
+  MemoryRetrievalResult,
+  MemoryRetriever,
 } from "./types.js";
 
 const extractionCharacterBudget = 32_000;
@@ -35,14 +39,26 @@ export class MemoryService {
     private readonly conversations: ConversationRepository,
     private readonly extractor: MemoryExtractionGateway,
     private readonly contextMaxSensitivity: number,
+    private readonly retriever?: MemoryRetriever,
+    private readonly indexManager?: MemoryIndexManager,
   ) {}
 
   public async getOverview(): Promise<MemoryOverview> {
-    const [counts, proposed, active, history] = await Promise.all([
+    const [counts, proposed, active, history, index] = await Promise.all([
       this.memories.countMemories(),
       this.memories.listMemories(["proposed"], 100),
       this.memories.listMemories(["active"], 200),
       this.memories.listMemories(["superseded", "rejected"], 100),
+      this.indexManager?.getStatus() ??
+        Promise.resolve({
+          enabled: false,
+          provider: null,
+          model: null,
+          dimensions: null,
+          eligible: 0,
+          indexed: 0,
+          pending: 0,
+        }),
     ]);
 
     return {
@@ -57,6 +73,7 @@ export class MemoryService {
       contextPolicy: {
         maxSensitivity: this.contextMaxSensitivity,
       },
+      index,
     };
   }
 
@@ -112,7 +129,9 @@ export class MemoryService {
   }
 
   public async createOwnerMemory(input: MemoryDraft): Promise<MemoryItem> {
-    return this.memories.createOwnerMemory(input);
+    const memory = await this.memories.createOwnerMemory(input);
+    await this.tryIndex(memory);
+    return memory;
   }
 
   public async approve(id: string): Promise<MemoryItem> {
@@ -123,6 +142,7 @@ export class MemoryService {
 
     const approved = await this.memories.approveMemory(id);
     if (!approved) throw new ConflictError("The memory changed before it could be approved.");
+    await this.tryIndex(approved);
     return approved;
   }
 
@@ -138,6 +158,7 @@ export class MemoryService {
       if (!replacement) {
         throw new ConflictError("The memory changed before it could be superseded.");
       }
+      await this.tryIndex(replacement);
       return replacement;
     }
     throw new ConflictError("Rejected or superseded memories cannot be edited.");
@@ -160,9 +181,67 @@ export class MemoryService {
     }
   }
 
+  public async search(
+    query: string,
+    limit: number,
+    signal?: AbortSignal,
+  ): Promise<MemoryRetrievalResult> {
+    if (this.retriever) {
+      return this.retriever.retrieve({
+        query,
+        limit,
+        maxSensitivity: this.contextMaxSensitivity,
+        ...(signal ? { signal } : {}),
+      });
+    }
+
+    const memories = await this.memories.searchActiveMemories({
+      query,
+      limit,
+      maxSensitivity: this.contextMaxSensitivity,
+    });
+    return {
+      query,
+      mode: "lexical",
+      matches: memories.map((memory) => ({
+        memory,
+        score: {
+          lexical: 1,
+          semantic: null,
+          importance: memory.importance / 100,
+          recency: 0,
+          combined: 1,
+        },
+        reasons: ["wording match"],
+      })),
+      diagnostics: {
+        lexicalCandidates: memories.length,
+        semanticCandidates: 0,
+        indexedBeforeSearch: 0,
+        embeddingProvider: null,
+        embeddingModel: null,
+        fallbackReason: null,
+      },
+    };
+  }
+
+  public async indexMemories(signal?: AbortSignal): Promise<MemoryIndexSummary> {
+    if (!this.indexManager) {
+      throw new ConflictError(
+        "Semantic memory is disabled. Configure a local or OpenAI embedding provider first.",
+      );
+    }
+    return this.indexManager.indexPending({ limit: 5_000, ...(signal ? { signal } : {}) });
+  }
+
   private async requireMemory(id: string): Promise<MemoryItem> {
     const memory = await this.memories.findMemory(id);
     if (!memory) throw new NotFoundError("That memory no longer exists.");
     return memory;
+  }
+
+  private async tryIndex(memory: MemoryItem): Promise<void> {
+    if (!this.indexManager) return;
+    await this.indexManager.indexMemory(memory).catch(() => undefined);
   }
 }

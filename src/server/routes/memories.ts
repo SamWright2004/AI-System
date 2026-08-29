@@ -5,6 +5,12 @@ import { memoryKinds } from "../../core/memory/types.js";
 
 const memoryIdSchema = z.object({ id: z.uuid() });
 const threadSchema = z.object({ threadId: z.uuid() }).strict();
+const memorySearchSchema = z
+  .object({
+    query: z.string().trim().min(1).max(4_000),
+    limit: z.number().int().min(1).max(50).default(12),
+  })
+  .strict();
 const memoryDraftSchema = z
   .object({
     kind: z.enum(memoryKinds),
@@ -20,6 +26,39 @@ export function registerMemoryRoutes(
   dependencies: { memoryService: MemoryService },
 ) {
   app.get("/api/v1/memories", async () => dependencies.memoryService.getOverview());
+
+  app.post("/api/v1/memories/search", async (request, reply) => {
+    const parsed = memorySearchSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: "INVALID_MEMORY_SEARCH",
+        message: parsed.error.issues[0]?.message ?? "Invalid memory search.",
+      });
+    }
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    request.raw.once("aborted", abort);
+    try {
+      return await dependencies.memoryService.search(
+        parsed.data.query,
+        parsed.data.limit,
+        controller.signal,
+      );
+    } finally {
+      request.raw.off("aborted", abort);
+    }
+  });
+
+  app.post("/api/v1/memories/index", async (request) => {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    request.raw.once("aborted", abort);
+    try {
+      return await dependencies.memoryService.indexMemories(controller.signal);
+    } finally {
+      request.raw.off("aborted", abort);
+    }
+  });
 
   app.post("/api/v1/memories/extract", async (request, reply) => {
     const parsed = threadSchema.safeParse(request.body);

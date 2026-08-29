@@ -88,6 +88,114 @@ export interface MemoryOverview {
   contextPolicy: {
     maxSensitivity: number;
   };
+  index: MemoryIndexStatus;
+}
+
+export interface MemoryEmbeddingBatch {
+  provider: string;
+  model: string;
+  dimensions: number;
+  vectors: number[][];
+}
+
+export interface MemoryEmbeddingGateway {
+  readonly provider: string;
+  readonly model: string;
+  embed(input: ReadonlyArray<string>, signal?: AbortSignal): Promise<MemoryEmbeddingBatch>;
+}
+
+export interface MemoryEmbeddingRecord {
+  memoryId: string;
+  provider: string;
+  model: string;
+  dimensions: number;
+  vector: number[];
+}
+
+export interface MemoryIndexStatus {
+  enabled: boolean;
+  provider: string | null;
+  model: string | null;
+  dimensions: number | null;
+  eligible: number;
+  indexed: number;
+  pending: number;
+}
+
+export interface MemoryIndexSummary extends MemoryIndexStatus {
+  created: number;
+  skipped: number;
+}
+
+export interface MemoryRetrievalScore {
+  lexical: number;
+  semantic: number | null;
+  importance: number;
+  recency: number;
+  combined: number;
+}
+
+export interface MemoryRetrievalMatch {
+  memory: MemoryItem;
+  score: MemoryRetrievalScore;
+  reasons: string[];
+}
+
+export interface MemoryRetrievalResult {
+  query: string;
+  mode: "lexical" | "hybrid";
+  matches: MemoryRetrievalMatch[];
+  diagnostics: {
+    lexicalCandidates: number;
+    semanticCandidates: number;
+    indexedBeforeSearch: number;
+    embeddingProvider: string | null;
+    embeddingModel: string | null;
+    fallbackReason: string | null;
+  };
+}
+
+export interface MemoryRetriever {
+  retrieve(input: {
+    query: string;
+    limit: number;
+    maxSensitivity: number;
+    signal?: AbortSignal;
+  }): Promise<MemoryRetrievalResult>;
+}
+
+export interface MemoryIndexManager {
+  getStatus(): Promise<MemoryIndexStatus>;
+  indexMemory(memory: MemoryItem, signal?: AbortSignal): Promise<boolean>;
+  indexPending(input?: { limit?: number; signal?: AbortSignal }): Promise<MemoryIndexSummary>;
+}
+
+export interface MemoryRetrievalRepository {
+  searchLexicalCandidates(input: {
+    query: string;
+    limit: number;
+    maxSensitivity: number;
+  }): Promise<Array<{ memory: MemoryItem; lexicalScore: number }>>;
+  searchSemanticCandidates(input: {
+    vector: number[];
+    provider: string;
+    model: string;
+    dimensions: number;
+    limit: number;
+    maxSensitivity: number;
+  }): Promise<Array<{ memory: MemoryItem; semanticScore: number }>>;
+  listActiveMemoriesWithoutEmbedding(input: {
+    provider: string;
+    model: string;
+    maxSensitivity: number;
+    limit: number;
+  }): Promise<MemoryItem[]>;
+  upsertMemoryEmbeddings(records: ReadonlyArray<MemoryEmbeddingRecord>): Promise<void>;
+  getMemoryEmbeddingCoverage(input: {
+    provider: string;
+    model: string;
+    maxSensitivity: number;
+  }): Promise<{ eligible: number; indexed: number; dimensions: number | null }>;
 }
 
 export interface MemoryRepository {

@@ -39,10 +39,16 @@ collapsed into one vague blob.
 
 ## Memory retrieval
 
-`memory_items` is canonical; `memory_embeddings` is only a future ranking index. The current retrieval path
-first filters on `active` status and the configured sensitivity ceiling, then applies PostgreSQL full-text
-ranking with importance and confirmation recency as deterministic tie-breakers. Proposed, rejected and
-superseded rows remain review history and are never returned by the context source.
+`memory_items` is canonical; `memory_embeddings` is a disposable ranking index. Retrieval first filters on
+`active` status and the configured sensitivity ceiling. PostgreSQL full-text candidates are always available.
+When a configured embedding provider is healthy, eligible missing rows are indexed in bounded batches and a
+pgvector cosine search contributes semantic candidates. The application fuses lexical rank, semantic
+similarity, importance and confirmation recency and records a human-readable selection reason. Proposed,
+rejected and superseded rows remain review history and are never returned by the context source.
+
+An embedding failure never changes canonical memory or blocks chat: retrieval falls back to the full-text
+result. The sensitivity ceiling is applied before text is offered to an embedding provider as well as before
+search, so a remote embedding adapter cannot see claims that its context policy would exclude.
 
 ## Why vector dimensions are not fixed in the column type
 

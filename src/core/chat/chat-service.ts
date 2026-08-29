@@ -1,5 +1,6 @@
 import { ConflictError, NotFoundError } from "../../shared/errors.js";
 import type { PersonalisationStore } from "../settings/types.js";
+import type { ProjectRepository } from "../projects/types.js";
 import type { AssembledContext, ConversationContextAssembler } from "../context/types.js";
 import { classifyGenerationError, isAbortError, ProviderError } from "./generation-errors.js";
 import type {
@@ -51,6 +52,7 @@ export class ChatService {
     private readonly contextAssembler: ConversationContextAssembler,
     private readonly personalisation: PersonalisationStore,
     private readonly runtime: HomeState["runtime"],
+    private readonly projects?: Pick<ProjectRepository, "findProject">,
   ) {}
 
   public async getHomeState(): Promise<HomeState> {
@@ -91,16 +93,23 @@ export class ChatService {
 
   public async *reply(input: {
     threadId?: string;
+    projectId?: string;
     content: string;
     signal?: AbortSignal;
   }): AsyncGenerator<ChatStreamEvent> {
     input.signal?.throwIfAborted();
 
+    if (input.projectId) {
+      const project = this.projects ? await this.projects.findProject(input.projectId) : null;
+      if (!project) throw new NotFoundError("That project no longer exists.");
+    }
+
     const thread = input.threadId
       ? await this.conversations.findThread(input.threadId)
       : await this.conversations.createThread({
           title: deriveThreadTitle(input.content),
-          kind: "temporary",
+          kind: input.projectId ? "project" : "temporary",
+          ...(input.projectId ? { projectId: input.projectId } : {}),
         });
 
     if (!thread) {

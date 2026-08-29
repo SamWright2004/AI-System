@@ -15,6 +15,11 @@ const optionalNonEmptyString = z.preprocess(
   z.string().trim().min(1).optional(),
 );
 
+const optionalInteger = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.coerce.number().int().positive().optional(),
+);
+
 const envSchema = z.object({
   APP_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_HOST: z.string().default("127.0.0.1"),
@@ -32,10 +37,12 @@ const envSchema = z.object({
   OPENAI_DEEP_MODEL: z.string().default("gpt-5.6"),
   OPENAI_FAST_MODEL: z.string().default("gpt-5.6-luna"),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  OPENAI_EMBEDDING_DIMENSIONS: optionalInteger,
 
   OLLAMA_BASE_URL: z.url().default("http://127.0.0.1:11434"),
   OLLAMA_CHAT_MODEL: z.string().default("qwen3.5:4b"),
   OLLAMA_MEMORY_MODEL: optionalNonEmptyString,
+  OLLAMA_EMBEDDING_MODEL: optionalNonEmptyString,
   OLLAMA_THINK: booleanFromString.default(false),
 
   CONTEXT_INPUT_TOKEN_BUDGET: z.coerce.number().int().min(512).max(1_000_000).default(12_000),
@@ -45,6 +52,11 @@ const envSchema = z.object({
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.coerce.number().int().min(0).max(3).optional(),
   ),
+  MEMORY_EMBEDDING_PROVIDER: z
+    .enum(["auto", "disabled", "mock", "ollama", "openai"])
+    .default("auto"),
+  MEMORY_AUTO_INDEX_LIMIT: z.coerce.number().int().min(0).max(500).default(32),
+  MEMORY_SEMANTIC_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.35),
 
   APP_SECRET: z.string().min(16).default("development-only-secret-change-me"),
   SERVE_UI: booleanFromString.default(false),
@@ -59,6 +71,25 @@ if (!parsed.success) {
 
 if (parsed.data.AI_PROVIDER === "openai" && !parsed.data.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY is required when AI_PROVIDER=openai");
+}
+
+const memoryEmbeddingProvider =
+  parsed.data.MEMORY_EMBEDDING_PROVIDER === "auto"
+    ? parsed.data.AI_PROVIDER === "openai"
+      ? "openai"
+      : parsed.data.AI_PROVIDER === "ollama" && parsed.data.OLLAMA_EMBEDDING_MODEL
+        ? "ollama"
+        : parsed.data.AI_PROVIDER === "mock"
+          ? "mock"
+          : "disabled"
+    : parsed.data.MEMORY_EMBEDDING_PROVIDER;
+
+if (memoryEmbeddingProvider === "openai" && !parsed.data.OPENAI_API_KEY) {
+  throw new Error("OPENAI_API_KEY is required when MEMORY_EMBEDDING_PROVIDER=openai");
+}
+
+if (memoryEmbeddingProvider === "ollama" && !parsed.data.OLLAMA_EMBEDDING_MODEL) {
+  throw new Error("OLLAMA_EMBEDDING_MODEL is required when MEMORY_EMBEDDING_PROVIDER=ollama");
 }
 
 export const config = Object.freeze({
@@ -77,10 +108,12 @@ export const config = Object.freeze({
     fast: parsed.data.OPENAI_FAST_MODEL,
     embedding: parsed.data.OPENAI_EMBEDDING_MODEL,
   },
+  openAiEmbeddingDimensions: parsed.data.OPENAI_EMBEDDING_DIMENSIONS,
 
   ollamaBaseUrl: parsed.data.OLLAMA_BASE_URL,
   ollamaChatModel: parsed.data.OLLAMA_CHAT_MODEL,
   ollamaMemoryModel: parsed.data.OLLAMA_MEMORY_MODEL ?? parsed.data.OLLAMA_CHAT_MODEL,
+  ollamaEmbeddingModel: parsed.data.OLLAMA_EMBEDDING_MODEL,
   ollamaThink: parsed.data.OLLAMA_THINK,
 
   contextInputTokenBudget: parsed.data.CONTEXT_INPUT_TOKEN_BUDGET,
@@ -88,6 +121,9 @@ export const config = Object.freeze({
   personalisationFile: parsed.data.PERSONALISATION_FILE,
   memoryContextMaxSensitivity:
     parsed.data.MEMORY_CONTEXT_MAX_SENSITIVITY ?? (parsed.data.AI_PROVIDER === "openai" ? 1 : 3),
+  memoryEmbeddingProvider,
+  memoryAutoIndexLimit: parsed.data.MEMORY_AUTO_INDEX_LIMIT,
+  memorySemanticMinScore: parsed.data.MEMORY_SEMANTIC_MIN_SCORE,
 
   appSecret: parsed.data.APP_SECRET,
   serveUi: parsed.data.SERVE_UI,

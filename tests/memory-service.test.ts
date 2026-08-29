@@ -23,6 +23,7 @@ const thread: Thread = {
   id: "10000000-0000-4000-8000-000000000001",
   title: "Memory evidence",
   kind: "temporary",
+  projectId: null,
   createdAt: now,
   updatedAt: now,
 };

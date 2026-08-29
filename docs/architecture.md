@@ -52,13 +52,13 @@ message, admits owner/application context blocks by priority, and then walks can
 cursor pagination. Older conversation is selected as complete user/assistant turns until the configured token
 budget is full. The original history is never deleted or rewritten when a request is compacted.
 
-| Extension point            | Present implementation                  | Intended additions                       |
-| -------------------------- | --------------------------------------- | ---------------------------------------- |
-| `ContextHistoryRepository` | cursor-paged PostgreSQL messages        | alternate local stores                   |
-| `ContextSource`            | personalisation and approved memory     | active project and document retrieval    |
-| `TokenEstimator`           | conservative UTF-8 heuristic            | provider-specific tokenisers             |
-| `AssistantContextBlock`    | labelled owner-trusted profile          | application and external evidence blocks |
-| context diagnostics        | budget, pages, turns and omitted blocks | retrieval quality and evaluation signals |
+| Extension point            | Present implementation                    | Intended additions                       |
+| -------------------------- | ----------------------------------------- | ---------------------------------------- |
+| `ContextHistoryRepository` | cursor-paged PostgreSQL messages          | alternate local stores                   |
+| `ContextSource`            | personalisation, approved memory, project | document and tool-result retrieval       |
+| `TokenEstimator`           | conservative UTF-8 heuristic              | provider-specific tokenisers             |
+| `AssistantContextBlock`    | labelled owner-trusted profile            | application and external evidence blocks |
+| context diagnostics        | budget, pages, turns and omitted blocks   | retrieval quality and evaluation signals |
 
 Trust travels with every supplemental block. Model adapters explicitly label owner settings, canonical
 application state and untrusted external evidence when composing their system instructions. This label does
@@ -103,9 +103,27 @@ Neither the extractor nor the model can write an active memory.
 
 `proposed` memories appear in the review drawer but `DatabaseMemorySource` queries only `active` rows. Approval
 sets a confirmation timestamp; an edit to an active memory creates a new active row and moves the prior row to
-`superseded`. Retrieval applies a deterministic status and sensitivity filter before full-text ranking. This is
-deliberately compatible with the existing `ContextSource` budget and trust labels, and leaves embeddings as a
-replaceable ranking addition rather than canonical truth.
+`superseded`. Retrieval applies deterministic status and sensitivity filters before any text reaches either
+full-text or embedding ranking. `HybridMemoryRetriever` fuses those candidate sets; its scores and reasons are
+inspectable in-app. `MemoryIndexer` treats vectors as replaceable cache rows, and every provider failure falls
+back to the lexical path rather than contaminating memory or failing generation.
+
+The answer-improvement evaluator sends the same prompt through the same assistant with and without one approved
+memory block, then uses a structured provider-neutral judge contract. Ollama and OpenAI have adapters, while a
+deterministic judge keeps the harness testable in mock mode. Evaluation reports identify both assistant and
+judge models so a model or prompt change cannot silently redefine the baseline.
+
+## Project workspaces
+
+Projects remain independent from conversations. Linking a thread sets its explicit `project_id`; it does not
+copy project text into message history or make every future chat project-aware. `ProjectContextSource` loads the
+selected project's objective, status and bounded task state as canonical application context. A normal fresh
+thread has no project ID and therefore receives no project block.
+
+The first UI slice can create, edit and archive projects, maintain tasks, start a clean project conversation,
+and move or detach an existing conversation. Archiving detaches threads but preserves their history. Later F3
+work can add conversational commands and summaries through the same core/repository boundary without granting
+the model direct database authority.
 
 ## Background work
 

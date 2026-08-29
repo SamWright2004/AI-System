@@ -29,6 +29,7 @@
     "test:watch": "vitest",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "eval:memory": "node --import tsx scripts/evaluate-memory.ts",
     "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {

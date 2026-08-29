@@ -148,6 +148,8 @@ function Ensure-LocalOllama {
     $BaseUrl = if ($EnvValues.ContainsKey("OLLAMA_BASE_URL")) { $EnvValues["OLLAMA_BASE_URL"] } else { "http://127.0.0.1:11434" }
     $Model = if ($EnvValues.ContainsKey("OLLAMA_CHAT_MODEL")) { $EnvValues["OLLAMA_CHAT_MODEL"] } else { "qwen3.5:4b" }
     $MemoryModel = if ($EnvValues.ContainsKey("OLLAMA_MEMORY_MODEL") -and $EnvValues["OLLAMA_MEMORY_MODEL"]) { $EnvValues["OLLAMA_MEMORY_MODEL"] } else { $Model }
+    $EmbeddingProvider = if ($EnvValues.ContainsKey("MEMORY_EMBEDDING_PROVIDER")) { $EnvValues["MEMORY_EMBEDDING_PROVIDER"] } else { "auto" }
+    $EmbeddingModel = if ($EnvValues.ContainsKey("OLLAMA_EMBEDDING_MODEL")) { $EnvValues["OLLAMA_EMBEDDING_MODEL"] } else { "" }
 
     $Uri = [Uri]$BaseUrl
     $IsLocal = $Uri.Host -in @("127.0.0.1", "localhost", "::1")
@@ -181,7 +183,12 @@ function Ensure-LocalOllama {
         Fail "Ollama is running, but the launcher could not list installed models."
     }
 
-    foreach ($RequiredModel in @($Model, $MemoryModel) | Select-Object -Unique) {
+    $RequiredModels = @($Model, $MemoryModel)
+    if ($EmbeddingModel -and $EmbeddingProvider -in @("auto", "ollama")) {
+        $RequiredModels += $EmbeddingModel
+    }
+
+    foreach ($RequiredModel in $RequiredModels | Select-Object -Unique) {
         $ModelPresent = $false
         foreach ($Line in $Models) {
             if ($Line -match "^\s*$([Regex]::Escape($RequiredModel))\s") {

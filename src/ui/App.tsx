@@ -10,30 +10,49 @@ import type {
 } from "../core/chat/types.js";
 import type { PersonalisationProfile } from "../core/settings/types.js";
 import type { MemoryDraft, MemoryExtractionSummary, MemoryOverview } from "../core/memory/types.js";
+import type {
+  Project,
+  ProjectDraft,
+  ProjectSummary,
+  ProjectTaskDraft,
+  ProjectWorkspace,
+} from "../core/projects/types.js";
 import {
   approveMemory,
+  archiveProject,
   archiveThread,
   createMemory,
+  createProject,
+  createProjectTask,
   editMemory,
   extractMemories,
   forgetMemory,
+  indexMemories,
   loadHome,
   loadMemoryOverview,
+  loadProject,
+  loadProjects,
   loadThread,
+  linkProjectThread,
   rejectMemory,
   renameThread,
   retryChat,
   savePersonalisation,
+  searchMemories,
   streamChat,
+  unlinkProjectThread,
+  updateProject,
+  updateProjectTask,
 } from "./api.js";
 import { ActivityRail } from "./components/ActivityRail.js";
 import { Brain } from "./components/Brain.js";
 import { Conversation } from "./components/Conversation.js";
 import { HistoryPanel } from "./components/HistoryPanel.js";
 import { MemoryPanel } from "./components/MemoryPanel.js";
+import { ProjectPanel } from "./components/ProjectPanel.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
 
-type UtilityPanel = "history" | "activity" | "memory" | "settings" | null;
+type UtilityPanel = "history" | "projects" | "activity" | "memory" | "settings" | null;
 type GenerationState = "idle" | "thinking" | "stopping";
 
 function appendUnique(messages: Message[], message: Message): Message[] {
@@ -64,6 +83,9 @@ function safeFilename(title: string): string {
 export function App() {
   const [home, setHome] = useState<HomeState | null>(null);
   const [memoryOverview, setMemoryOverview] = useState<MemoryOverview | null>(null);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [projectWorkspace, setProjectWorkspace] = useState<ProjectWorkspace | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -91,6 +113,11 @@ export function App() {
       .then(setMemoryOverview)
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "Memory is not ready.");
+      });
+    loadProjects()
+      .then(setProjects)
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : "Projects are not ready.");
       });
   }, []);
 
@@ -127,10 +154,12 @@ export function App() {
         event.preventDefault();
         if (!abortRef.current) {
           setActiveThread(null);
+          activeThreadRef.current = null;
           setMessages([]);
           setStreamingText("");
           setProblem(null);
           setError(null);
+          setSelectedProjectId(null);
           setPanel(null);
           requestAnimationFrame(() => inputRef.current?.focus());
         }
@@ -138,6 +167,10 @@ export function App() {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "m") {
         event.preventDefault();
         setPanel("memory");
+      }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        setPanel("projects");
       }
       if (event.key === "Escape") {
         if (abortRef.current) {
@@ -161,13 +194,19 @@ export function App() {
     setMemoryOverview(await loadMemoryOverview());
   }
 
+  async function refreshProjects() {
+    setProjects(await loadProjects());
+  }
+
   function startFreshConversation() {
     if (abortRef.current) return;
     setActiveThread(null);
+    activeThreadRef.current = null;
     setMessages([]);
     setStreamingText("");
     setProblem(null);
     setError(null);
+    setSelectedProjectId(null);
     setPanel(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   }
@@ -177,9 +216,14 @@ export function App() {
     setError(null);
     const state = await loadThread(threadId);
     setActiveThread(state.thread);
+    activeThreadRef.current = state.thread;
     setMessages(state.messages);
     setStreamingText("");
     setProblem(null);
+    setSelectedProjectId(state.thread.projectId);
+    if (state.thread.projectId) {
+      setProjectWorkspace(await loadProject(state.thread.projectId));
+    }
     setPanel(null);
     lastUserMessageIdRef.current =
       [...state.messages].reverse().find((message) => message.role === "user")?.id ?? null;
@@ -190,6 +234,7 @@ export function App() {
     if (event.type === "thread") {
       setActiveThread(event.thread);
       activeThreadRef.current = event.thread;
+      setSelectedProjectId(event.thread.projectId);
       setHome((current) => {
         if (!current) return current;
         const existing = current.threads.find((thread) => thread.id === event.thread.id);
@@ -203,6 +248,7 @@ export function App() {
           threads: [summary, ...current.threads.filter((thread) => thread.id !== summary.id)],
         };
       });
+      void refreshProjects().catch(() => undefined);
     }
     if (event.type === "user_message") {
       lastUserMessageIdRef.current = event.message.id;
@@ -310,6 +356,9 @@ export function App() {
       streamChat(
         {
           ...(activeThreadRef.current?.id ? { threadId: activeThreadRef.current.id } : {}),
+          ...(!activeThreadRef.current?.id && selectedProjectId
+            ? { projectId: selectedProjectId }
+            : {}),
           content,
         },
         signal,
@@ -398,6 +447,78 @@ export function App() {
     await refreshMemories();
   }
 
+  async function rebuildMemoryIndex() {
+    const result = await indexMemories();
+    await refreshMemories();
+    return result;
+  }
+
+  async function openProjectWorkspace(projectId: string) {
+    setProjectWorkspace(await loadProject(projectId));
+  }
+
+  async function addProject(input: ProjectDraft) {
+    const project = await createProject(input);
+    await refreshProjects();
+    await openProjectWorkspace(project.id);
+  }
+
+  async function saveProject(projectId: string, input: ProjectDraft) {
+    await updateProject(projectId, input);
+    await Promise.all([refreshProjects(), openProjectWorkspace(projectId)]);
+  }
+
+  async function removeProject(projectId: string) {
+    await archiveProject(projectId);
+    if (selectedProjectId === projectId) setSelectedProjectId(null);
+    if (activeThreadRef.current?.projectId === projectId) {
+      const updated = { ...activeThreadRef.current, kind: "temporary" as const, projectId: null };
+      activeThreadRef.current = updated;
+      setActiveThread(updated);
+    }
+    setProjectWorkspace(null);
+    await Promise.all([refreshProjects(), refreshHome()]);
+  }
+
+  function startProjectConversation(project: Project) {
+    if (abortRef.current) return;
+    setActiveThread(null);
+    activeThreadRef.current = null;
+    setMessages([]);
+    setStreamingText("");
+    setProblem(null);
+    setError(null);
+    setSelectedProjectId(project.id);
+    setPanel(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  async function attachThreadToProject(projectId: string, threadId: string) {
+    const result = await linkProjectThread(projectId, threadId);
+    setActiveThread(result.thread);
+    activeThreadRef.current = result.thread;
+    setSelectedProjectId(projectId);
+    await Promise.all([refreshProjects(), openProjectWorkspace(projectId), refreshHome()]);
+  }
+
+  async function detachThreadFromProject(projectId: string, threadId: string) {
+    const result = await unlinkProjectThread(projectId, threadId);
+    setActiveThread(result.thread);
+    activeThreadRef.current = result.thread;
+    setSelectedProjectId(null);
+    await Promise.all([refreshProjects(), openProjectWorkspace(projectId), refreshHome()]);
+  }
+
+  async function addProjectTask(projectId: string, input: ProjectTaskDraft) {
+    await createProjectTask(projectId, input);
+    await Promise.all([refreshProjects(), openProjectWorkspace(projectId)]);
+  }
+
+  async function saveProjectTask(taskId: string, input: ProjectTaskDraft) {
+    const task = await updateProjectTask(taskId, input);
+    await Promise.all([refreshProjects(), openProjectWorkspace(task.projectId)]);
+  }
+
   function reviewActivity(item: ActivityItem) {
     if (item.relatedType === "memory_review") {
       setPanel("memory");
@@ -449,6 +570,11 @@ export function App() {
   const assistantDisplayName = home?.personalisation.assistant.displayName || "Local mind";
   const ownerDisplayName = home?.personalisation.owner.displayName;
   const isGenerating = generationState !== "idle";
+  const activeProjectId = activeThread ? activeThread.projectId : selectedProjectId;
+  const activeProject =
+    projectWorkspace?.project.id === activeProjectId
+      ? projectWorkspace.project
+      : (projects.find((project) => project.id === activeProjectId) ?? null);
 
   return (
     <main className="shell">
@@ -457,6 +583,17 @@ export function App() {
 
       <header className="system-bar">
         <div className="system-bar__side">
+          <button
+            className="system-action"
+            type="button"
+            onClick={() => setPanel("projects")}
+            aria-label="Projects"
+            title="Projects (Ctrl+Shift+P)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.5 7.5h7l2-2h8v13h-17Z" />
+            </svg>
+          </button>
           <button
             className="system-action"
             type="button"
@@ -487,7 +624,10 @@ export function App() {
           </div>
         </div>
 
-        <div className="system-bar__thread">{activeThread?.title || "Fresh conversation"}</div>
+        <div className="system-bar__thread">
+          <span>{activeThread?.title || "Fresh conversation"}</span>
+          {activeProject ? <small>{activeProject.name}</small> : null}
+        </div>
 
         <div className="system-bar__side system-bar__side--end">
           <span className="system-state">
@@ -531,6 +671,7 @@ export function App() {
           <div className="resting-copy">
             <p>{ownerDisplayName ? `I’m here, ${ownerDisplayName}.` : "I’m here."}</p>
             <span>A fresh conversation. Your earlier ones are still in history.</span>
+            {activeProject ? <small>Working inside {activeProject.name}</small> : null}
           </div>
         ) : null}
 
@@ -613,27 +754,31 @@ export function App() {
             aria-label="Close panel"
           />
           <aside
-            className={`utility-drawer utility-drawer--${panel === "history" ? "left" : "right"}`}
+            className={`utility-drawer utility-drawer--${panel === "history" || panel === "projects" ? "left" : "right"}`}
           >
             <header className="utility-drawer__header">
               <div>
                 <span className="eyebrow">
                   {panel === "history"
                     ? "Conversations"
-                    : panel === "settings"
-                      ? "Settings"
-                      : panel === "memory"
-                        ? "Honest memory"
-                        : "Background"}
+                    : panel === "projects"
+                      ? "Workspaces"
+                      : panel === "settings"
+                        ? "Settings"
+                        : panel === "memory"
+                          ? "Honest memory"
+                          : "Background"}
                 </span>
                 <h2>
                   {panel === "history"
                     ? "History"
-                    : panel === "settings"
-                      ? "Make it yours"
-                      : panel === "memory"
-                        ? "What I remember"
-                        : "While you were away"}
+                    : panel === "projects"
+                      ? "Projects"
+                      : panel === "settings"
+                        ? "Make it yours"
+                        : panel === "memory"
+                          ? "What I remember"
+                          : "While you were away"}
                 </h2>
               </div>
               <button type="button" onClick={() => setPanel(null)} aria-label="Close panel">
@@ -656,11 +801,32 @@ export function App() {
               <ActivityRail items={home?.activity ?? []} onReview={reviewActivity} />
             ) : null}
 
+            {panel === "projects" ? (
+              <ProjectPanel
+                projects={projects}
+                workspace={projectWorkspace}
+                activeThreadId={activeThread?.id ?? null}
+                activeProjectId={activeProjectId}
+                onOpen={openProjectWorkspace}
+                onOpenThread={openConversation}
+                onCreate={addProject}
+                onUpdate={saveProject}
+                onArchive={removeProject}
+                onStartConversation={startProjectConversation}
+                onLinkThread={attachThreadToProject}
+                onUnlinkThread={detachThreadFromProject}
+                onCreateTask={addProjectTask}
+                onUpdateTask={saveProjectTask}
+              />
+            ) : null}
+
             {panel === "memory" ? (
               <MemoryPanel
                 overview={memoryOverview}
                 activeThreadId={activeThread?.id ?? null}
                 onScan={scanConversationForMemories}
+                onSearch={searchMemories}
+                onIndex={rebuildMemoryIndex}
                 onCreate={addMemory}
                 onEdit={updateMemory}
                 onApprove={activateMemory}

@@ -79,6 +79,11 @@ policy: do not store secrets as memory, and review provider choice before raisin
 Forgetting a derived memory does not delete its source conversation, so the evidence and the user's chat-history
 controls remain independent.
 
+The same ceiling is enforced before embedding. A remote embedding adapter is never offered a memory that its
+context policy would exclude, while local Ollama embeddings can use the higher local ceiling. Vectors are
+disposable indexes: superseded or rejected rows are ineligible, deletion cascades to the index, and an embedding
+failure falls back to local full-text search.
+
 ## Dependency policy
 
 pnpm 11 blocks dependency install scripts unless they are explicitly allowed. This repository permits only

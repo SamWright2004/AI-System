@@ -15,6 +15,7 @@ interface ThreadRow {
   id: string;
   title: string;
   kind: Thread["kind"];
+  project_id: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -59,6 +60,7 @@ function mapThread(row: ThreadRow): Thread {
     id: row.id,
     title: row.title,
     kind: row.kind,
+    projectId: row.project_id,
     createdAt: asIso(row.created_at),
     updatedAt: asIso(row.updated_at),
   };
@@ -107,12 +109,20 @@ export class PostgresStore
 {
   public constructor(private readonly pool: DatabasePool) {}
 
-  public async createThread(input: { title: string; kind?: Thread["kind"] }): Promise<Thread> {
+  public async createThread(input: {
+    title: string;
+    kind?: Thread["kind"];
+    projectId?: string;
+  }): Promise<Thread> {
     const result = await this.pool.query<ThreadRow>(
-      `INSERT INTO threads (title, kind)
-       VALUES ($1, $2)
-       RETURNING id, title, kind, created_at, updated_at`,
-      [input.title, input.kind ?? "temporary"],
+      `INSERT INTO threads (title, kind, project_id)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, kind, project_id, created_at, updated_at`,
+      [
+        input.title,
+        input.projectId ? "project" : (input.kind ?? "temporary"),
+        input.projectId ?? null,
+      ],
     );
 
     const row = result.rows[0];
@@ -129,6 +139,7 @@ export class PostgresStore
          thread.id,
          thread.title,
          thread.kind,
+         thread.project_id,
          thread.created_at,
          thread.updated_at,
          (
@@ -154,7 +165,7 @@ export class PostgresStore
 
   public async findThread(threadId: string): Promise<Thread | null> {
     const result = await this.pool.query<ThreadRow>(
-      `SELECT id, title, kind, created_at, updated_at
+      `SELECT id, title, kind, project_id, created_at, updated_at
        FROM threads
        WHERE id = $1 AND archived_at IS NULL`,
       [threadId],
@@ -167,7 +178,7 @@ export class PostgresStore
       `UPDATE threads
        SET title = $2, updated_at = now()
        WHERE id = $1 AND archived_at IS NULL
-       RETURNING id, title, kind, created_at, updated_at`,
+       RETURNING id, title, kind, project_id, created_at, updated_at`,
       [threadId, title],
     );
     return result.rows[0] ? mapThread(result.rows[0]) : null;

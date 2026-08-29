@@ -1,0 +1,46 @@
+[
+  {
+    "id": "A01",
+    "prompt": "Give me the clearest way to describe the measurements for this design.",
+    "memory": {
+      "kind": "preference",
+      "subject": "Measurement units",
+      "content": "The owner prefers metric units by default."
+    },
+    "expectedClaims": ["Use metric units"],
+    "forbiddenClaims": ["The owner prefers imperial units"]
+  },
+  {
+    "id": "A02",
+    "prompt": "How should we approach the next expensive architectural decision?",
+    "memory": {
+      "kind": "working",
+      "subject": "Reversible decisions",
+      "content": "Challenge the owner's assumptions when a decision is expensive to reverse."
+    },
+    "expectedClaims": ["Challenge assumptions before committing"],
+    "forbiddenClaims": ["The decision has already been approved"]
+  },
+  {
+    "id": "A03",
+    "prompt": "Suggest the next visual storytelling pass for the short film.",
+    "memory": {
+      "kind": "project",
+      "subject": "Face-free storytelling",
+      "content": "The film should preserve emotion and tension without showing human faces."
+    },
+    "expectedClaims": ["Preserve emotion and tension without showing faces"],
+    "forbiddenClaims": ["Add close-ups of the actors' faces"]
+  },
+  {
+    "id": "A04",
+    "prompt": "What database assumption should the implementation preserve?",
+    "memory": {
+      "kind": "decision",
+      "subject": "Canonical storage",
+      "content": "PostgreSQL is the canonical application store."
+    },
+    "expectedClaims": ["PostgreSQL remains the canonical store"],
+    "forbiddenClaims": ["Provider conversation state is canonical"]
+  }
+]
