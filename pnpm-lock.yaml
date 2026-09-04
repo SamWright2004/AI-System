@@ -27,8 +27,8 @@ importers:
         specifier: ^8.23.0
         version: 8.23.0
       pg-boss:
-        specifier: ^12.27.0
-        version: 12.27.0
+        specifier: ^12.29.0
+        version: 12.29.0
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -836,8 +836,8 @@ packages:
     resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
     engines: {node: '>=18'}
 
-  cron-parser@5.8.1:
-    resolution: {integrity: sha512-fVw5nGEkTVmiPKo3fY0j28Thq6jR00VKWyL22llWrsbII4sDHI+8Kx1kcL+QzGQJfCfk64bbMotrgTZRpzYpLQ==}
+  cron-parser@5.10.0:
+    resolution: {integrity: sha512-izNAxJyRWUP8ljBoDSub5WyrVOUlT4SLGShswE7eoRBpp6QUsSycYxLBMJlbshgPBMcPT/nrfgjNY2918ayv2A==}
     engines: {node: '>=18'}
 
   cross-spawn@7.0.6:
@@ -1284,8 +1284,8 @@ packages:
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
-  pg-boss@12.27.0:
-    resolution: {integrity: sha512-DawcUffyDVJvxGYvaoc7B+G1yY86dJtvugVYMAt+CtO6Lg+RSyQuAU7IRfNyhqi0Bo/JeaxLqhqIy5+twpmYlg==}
+  pg-boss@12.29.0:
+    resolution: {integrity: sha512-KokbfJf8uzKejAYm8vtAU9UNZR2PHBmucxsxrljJWTu2TG34a4GW6syAN9U9xeR8Tf3c5JWxmdiG1zOoUTCkxA==}
     engines: {node: '>=22.12.0'}
     hasBin: true
 
@@ -1630,8 +1630,8 @@ packages:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
 
-  type-fest@5.8.0:
-    resolution: {integrity: sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==}
+  type-fest@5.9.0:
+    resolution: {integrity: sha512-yANm3Jr3GiJ1qgJlxGAVxTOIcEOk1rhQHamlXtnrCK7EHP4HeM9OGxtMg/W7HFdrVzw/ZWJKGVIJusVH85sLtw==}
     engines: {node: '>=20'}
 
   typescript-eslint@8.67.0:
@@ -2359,7 +2359,7 @@ snapshots:
 
   cookie@1.1.1: {}
 
-  cron-parser@5.8.1:
+  cron-parser@5.10.0:
     dependencies:
       luxon: 3.7.2
 
@@ -2781,9 +2781,9 @@ snapshots:
 
   pathe@2.0.3: {}
 
-  pg-boss@12.27.0:
+  pg-boss@12.29.0:
     dependencies:
-      cron-parser: 5.8.1
+      cron-parser: 5.10.0
       pg: 8.23.0
       serialize-error: 13.0.1
     transitivePeerDependencies:
@@ -2985,7 +2985,7 @@ snapshots:
   serialize-error@13.0.1:
     dependencies:
       non-error: 0.1.0
-      type-fest: 5.8.0
+      type-fest: 5.9.0
 
   set-cookie-parser@2.7.2: {}
 
@@ -3118,7 +3118,7 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
 
-  type-fest@5.8.0:
+  type-fest@5.9.0:
     dependencies:
       tagged-tag: 1.0.0
 
